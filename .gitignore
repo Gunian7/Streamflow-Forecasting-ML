@@ -1,0 +1,25 @@
+# Python virtual environment
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Large intermediate model checkpoints & serialized state (>50MB)
+results/predictions/individual_models_results.pkl
+results/models/*.pkl
+results/models/*.pt
+results/models/*.pth
+
+# Documents containing personal/student/teaching records (DOCX/DOC)
+*.docx
+*.doc
+
+# Other personal/transient screenshots
+时间截图.png
+Snipaste*.png
