@@ -271,32 +271,44 @@ def build_report():
     doc.add_heading("4.1 基于人工神经网络 (ANN) 的径流多步预测", level=2)
     doc.add_paragraph(
         "采用多层感知机 (MLPRegressor) 架构，集成早期停止 (Early Stopping) 与 L2 正则化机制。\n"
-        "通过基于时序交叉验证 (TimeSeriesSplit CV, 3折) 的网格搜索确定最优超参数组合：\n"
-        "• 隐藏层结构: (64, 32) 双层拓扑\n"
-        "• L2 正则化惩罚系数 alpha: 0.01\n"
-        "• 初始学习率 learning_rate_init: 0.01\n"
-        "共训练模型：7个直接预测模型 + 1个多输出预测模型 = 8个 ANN 模型。"
+        "【超参数调优方案】：由于本任务为时间序列数据，为防止传统 K 折交叉验证带来的未来标签泄露，必须采用‘时序滚动交叉验证’ (TimeSeriesSplit, 3折)。网格搜索候选空间为：\n"
+        "  • 隐藏层结构 hidden_layer_sizes: [(64, 32), (128, 64)]\n"
+        "  • 正则化惩罚系数 alpha: [0.001, 0.01]\n"
+        "  • 初始学习率 learning_rate_init: [0.005, 0.01]\n"
+        "以验证集负均方根误差 (neg_root_mean_squared_error) 为评分目标，GridSearchCV 搜索得到全局最优超参数组合为：\n"
+        "  • 最优隐藏层结构: (64, 32) 双层拓扑\n"
+        "  • 最优 alpha: 0.01\n"
+        "  • 最优 learning_rate_init: 0.01\n"
+        "在最优配置下，分别训练 7 个直接预测独立模型与 1 个多输出模型，合计构建 8 个 ANN 模型。"
     )
     
     doc.add_heading("4.2 基于随机森林 (Random Forest) 的径流多步预测", level=2)
     doc.add_paragraph(
         "随机森林作为非参数集成树模型，具备强大的抗过拟合与特征非线性交互学习能力。\n"
-        "经网格搜索得到最优参数：\n"
-        "• 决策树数量 n_estimators: 200\n"
-        "• 树的最大深度 max_depth: 20\n"
-        "• 内部节点再划分最小样本数 min_samples_split: 5\n"
-        "共训练模型：7个直接预测模型 + 1个多输出预测模型 = 8个 RF 模型。"
+        "【超参数调优方案】：同样基于 TimeSeriesSplit (3折) 开展网格搜索，候选超参数空间设定为：\n"
+        "  • 决策树数量 n_estimators: [100, 200]\n"
+        "  • 树的最大深度 max_depth: [10, 15, 20]\n"
+        "  • 内部节点再划分最小样本数 min_samples_split: [2, 5]\n"
+        "经网格搜索得到最优超参数组合为：\n"
+        "  • 最优决策树数量 n_estimators: 200\n"
+        "  • 最优最大深度 max_depth: 20\n"
+        "  • 最优最小分裂样本数 min_samples_split: 5\n"
+        "在最优配置下，分别训练 7 个直接预测独立模型与 1 个多输出模型，合计构建 8 个 RF 模型。"
     )
     
     doc.add_heading("4.3 基于长短期记忆网络 (LSTM) 的径流多步预测", level=2)
     doc.add_paragraph(
         "利用 PyTorch 搭建面向时间序列动力学演化的深层 LSTM 架构。通过设计历史序列滑动步长（Seq_len = 3），模型将过去多日的动态特征张量传入递归单元中，"
         "配合 AdamW 优化器、梯度裁剪与 ReduceLROnPlateau 动态学习率调度策略。\n"
-        "经超参数验证选择：\n"
-        "• 隐层维度 hidden_dim: 64\n"
-        "• LSTM 循环层数 num_layers: 1\n"
-        "• 学习率 lr: 0.005\n"
-        "共训练模型：7个直接预测模型 + 1个多输出预测模型 = 8个 LSTM 模型。\n"
+        "【超参数调优方案】：针对深度循环神经网络的结构特点，设计了超参数网格搜索候选组合：\n"
+        "  • 候选配置 A: hidden_dim=64, num_layers=1, lr=0.005\n"
+        "  • 候选配置 B: hidden_dim=128, num_layers=2, lr=0.003\n"
+        "  • 候选配置 C: hidden_dim=64, num_layers=2, lr=0.005\n"
+        "在时序前向划分的内部验证集上进行收敛训练与 RMSE 评估，配置 A 以最低验证误差胜出，确定最优超参数组合：\n"
+        "  • 最优隐层维度 hidden_dim: 64\n"
+        "  • 最优 LSTM 循环层数 num_layers: 1\n"
+        "  • 最优学习率 lr: 0.005\n"
+        "在最优配置下，分别训练 7 个直接预测独立模型与 1 个多输出模型，合计构建 8 个 LSTM 模型。\n"
         "三者共计完成指导书要求的 3 × 8 = 24 个基础个体预测模型构建。"
     )
     
