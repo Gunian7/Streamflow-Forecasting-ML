@@ -20,6 +20,11 @@ results/models/*.pth
 *.docx
 *.doc
 
+# Local private README / notes
+README_LOCAL.md
+README_PRIVATE.md
+local_*.md
+
 # Other personal/transient screenshots
 时间截图.png
 Snipaste*.png
