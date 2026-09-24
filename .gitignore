@@ -19,6 +19,7 @@ results/models/*.pth
 # Documents containing personal/student/teaching records (DOCX/DOC)
 *.docx
 *.doc
+*.pdf
 
 # Local private README / notes
 README_LOCAL.md
