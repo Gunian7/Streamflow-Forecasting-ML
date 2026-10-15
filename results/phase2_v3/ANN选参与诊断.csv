@@ -1,0 +1,9 @@
+﻿模型,策略,选参预见期,最佳参数,交叉验证RMSE（cfs）,实际迭代次数,最大迭代保护值,是否触及迭代上限,训练损失（缩放尺度）
+ANN,直接,1,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [16]}",670.4795155781843,384,5000,False,0.25863323976084573
+ANN,直接,2,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [16]}",751.6111884666298,310,5000,False,0.30266832367013996
+ANN,直接,3,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [16]}",793.630381167206,506,5000,False,0.3150727023387112
+ANN,直接,4,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [16]}",829.2450685906306,772,5000,False,0.3178048805683776
+ANN,直接,5,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [32]}",839.9319072717093,737,5000,False,0.32689914903921036
+ANN,直接,6,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [32]}",856.6391906803343,1015,5000,False,0.33706435922001365
+ANN,直接,7,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [16]}",884.0208057596609,1147,5000,False,0.34917554217409935
+ANN,多输出,multi,"{""regressor__model__alpha"": 100.0, ""regressor__model__hidden_layer_sizes"": [16]}",816.4898993648673,32,5000,False,0.5214672532054028

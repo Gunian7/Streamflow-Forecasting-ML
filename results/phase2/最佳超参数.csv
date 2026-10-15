@@ -1,0 +1,17 @@
+﻿模型,策略,选参预见期,最佳参数,交叉验证RMSE
+ANN,直接,1,"{""regressor__model__alpha"": 0.1, ""regressor__model__hidden_layer_sizes"": [64, 32], ""regressor__model__learning_rate_init"": 0.001}",865.5378682438932
+ANN,直接,2,"{""regressor__model__alpha"": 0.1, ""regressor__model__hidden_layer_sizes"": [64, 32], ""regressor__model__learning_rate_init"": 0.001}",923.9624269564483
+ANN,直接,3,"{""regressor__model__alpha"": 0.1, ""regressor__model__hidden_layer_sizes"": [64, 32], ""regressor__model__learning_rate_init"": 0.001}",968.3475797578294
+ANN,直接,4,"{""regressor__model__alpha"": 0.1, ""regressor__model__hidden_layer_sizes"": [64, 32], ""regressor__model__learning_rate_init"": 0.001}",1013.8543698333757
+ANN,直接,5,"{""regressor__model__alpha"": 0.1, ""regressor__model__hidden_layer_sizes"": [64, 32], ""regressor__model__learning_rate_init"": 0.001}",1065.0076510471993
+ANN,直接,6,"{""regressor__model__alpha"": 0.01, ""regressor__model__hidden_layer_sizes"": [64, 32], ""regressor__model__learning_rate_init"": 0.001}",1190.1891015825752
+ANN,直接,7,"{""regressor__model__alpha"": 0.1, ""regressor__model__hidden_layer_sizes"": [64, 32], ""regressor__model__learning_rate_init"": 0.001}",1314.5639431667714
+ANN,多输出,multi,"{""regressor__model__alpha"": 0.1, ""regressor__model__hidden_layer_sizes"": [32], ""regressor__model__learning_rate_init"": 0.001}",1017.3980958598701
+RF,直接,1,"{""max_depth"": 8, ""min_samples_leaf"": 3}",676.8106132606956
+RF,直接,2,"{""max_depth"": 16, ""min_samples_leaf"": 3}",916.9545096678285
+RF,直接,3,"{""max_depth"": 16, ""min_samples_leaf"": 3}",939.3739187053603
+RF,直接,4,"{""max_depth"": 8, ""min_samples_leaf"": 3}",988.8880276052496
+RF,直接,5,"{""max_depth"": 16, ""min_samples_leaf"": 3}",971.6352272119915
+RF,直接,6,"{""max_depth"": 16, ""min_samples_leaf"": 3}",998.5997618662146
+RF,直接,7,"{""max_depth"": 16, ""min_samples_leaf"": 3}",1031.7131696545596
+RF,多输出,multi,"{""max_depth"": 16, ""min_samples_leaf"": 3}",911.6667029165859

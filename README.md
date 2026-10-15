@@ -30,8 +30,16 @@ Streamflow-Forecasting-ML/
     │   └── evaluation/                        # 评估图表 (预见期误差衰减曲线、策略对比柱状图、春汛水文过程线拟合)
     ├── metrics/                               # 详细量化指标汇总表格 (CSV，含每个步长各模型精度)
     ├── predictions/                           # 预测矩阵与统一对齐数据包 (.pkl)
-    └── processed_data/                        # 清洗与特征工程后严格时序切分的数据包 (.pkl)
+    └── processed_data/                        # 清洗与特征工程数据
+        ├── processed_dataset.pkl              # 后续模型使用的数据包
+        └── 01047000_with_feature_values.csv    # 原始列右侧追加时序特征及两种归一化数值
 ```
+
+### 逐日特征数值表
+
+运行 `python step2_feature_engineering.py` 后生成 `results/processed_data/01047000_with_feature_values.csv`。原始 `01047000.csv` 不覆盖；新表保留原始行及列顺序，右侧追加四季、月份与日周期编码、滞后、窗口特征，再追加 `_minmax` 和 `_zscore` 后缀列。
+
+归一化列覆盖参与建模的全部特征，复用训练集拟合的 scaler，不在全量数据重新拟合；导出包含特征筛选前的所有结果。原始月份等日期整数以及零方差 Swe 不参与模型归一化。历史不足的特征值留空，不填零。测试期 Min-Max 值可能超出 [0, 1]，不进行截断。CSV 使用 UTF-8 BOM 编码，可通过 Excel 打开。
 
 ---
 

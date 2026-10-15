@@ -16,6 +16,12 @@ results/models/*.pkl
 results/models/*.pt
 results/models/*.pth
 
+# Trained model binaries from experiment rounds (reproducible from code)
+*.joblib
+
+# Local backups of generated artefacts
+*_英文备份.csv
+
 # Documents containing personal/student/teaching records (DOCX/DOC)
 *.docx
 *.doc
@@ -23,6 +29,8 @@ results/models/*.pth
 
 # Local private README / notes
 README_LOCAL.md
+local_report_members.json
+本地资料/
 README_PRIVATE.md
 local_*.md
 

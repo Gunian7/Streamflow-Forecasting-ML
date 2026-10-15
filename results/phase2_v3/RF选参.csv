@@ -1,0 +1,9 @@
+﻿模型,策略,选参预见期,最佳参数,交叉验证RMSE（cfs）,来源
+RF,直接,1,"{""max_features"": 0.5, ""max_samples"": null}",639.7249706613114,细化
+RF,直接,2,"{""max_features"": 0.5, ""max_samples"": 0.7}",740.7570041772193,细化
+RF,直接,3,"{""max_features"": 0.5, ""max_samples"": 0.7}",773.7426582220296,细化
+RF,直接,4,"{""max_features"": 0.5, ""max_samples"": 0.7}",799.6917385862815,细化
+RF,直接,5,"{""max_features"": 0.5, ""max_samples"": 0.7}",826.1165684090817,细化
+RF,直接,6,"{""max_features"": 0.5, ""max_samples"": 0.7}",831.7481995209318,细化
+RF,直接,7,"{""max_features"": 0.5, ""max_samples"": 0.7}",840.8727464790559,细化
+RF,多输出,multi,"{""max_features"": 0.5, ""max_samples"": 0.7}",805.0576540963663,细化

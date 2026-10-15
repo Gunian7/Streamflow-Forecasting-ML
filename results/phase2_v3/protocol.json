@@ -1,0 +1,29 @@
+{
+  "test_start": "2004-01-01",
+  "max_horizon": 7,
+  "include_current_discharge": false,
+  "native_multioutput": true,
+  "seeds": [
+    17,
+    42,
+    73
+  ],
+  "primary_metric": "rmse_cfs",
+  "development_years": [
+    2000,
+    2001,
+    2002,
+    2003
+  ],
+  "features_excluded": [
+    "Date",
+    "Year",
+    "Month",
+    "Day",
+    "DayOfWeek",
+    "DayOfYear",
+    "Swe",
+    "Discharge"
+  ],
+  "code_digest": "ece16bcc7448be9d56dc9931c89ca785c27292dfa619d2f8057b8f13b4bddf33"
+}
