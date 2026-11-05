@@ -648,7 +648,7 @@ def _repeat_as_header_row(row):
 
 
 def _column_widths_cm(rows_text, total_cm):
-    """按列内容长度分配列宽（平方根阻尼），并保证每列不小于 1.4cm。"""
+    """按列内容长度分配列宽（平方根阻尼），并保证每列不小于 1.8cm。"""
     n = len(rows_text[0])
     maxlen = []
     for j in range(n):
