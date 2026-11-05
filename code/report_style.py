@@ -28,7 +28,7 @@ from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm, Pt, RGBColor
+from docx.shared import Cm, Length, Pt, RGBColor
 
 # ---------------------------------------------------------------- 常量
 
@@ -53,7 +53,7 @@ CAPTION_SIZE = Pt(10.5)           # 五号：图题/表题
 CAPTION_SPACE_BEFORE, CAPTION_SPACE_AFTER = Pt(6), Pt(3)
 FIGURE_CAPTION_SPACE_BEFORE, FIGURE_CAPTION_SPACE_AFTER = Pt(3), Pt(3)
 NOTE_SIZE = Pt(9)                 # 小五：图注
-NOTE_SPACE_BEFORE, NOTE_SPACE_AFTER = Pt(0), Pt(6)
+NOTE_SPACE_BEFORE, NOTE_SPACE_AFTER = Pt(3), Pt(6)
 TABLE_SIZE = Pt(10.5)             # 五号：表内文字
 
 HEADER_SIZE = Pt(9)
@@ -480,8 +480,8 @@ def _plain_para(paragraph, align=None, line_spacing=1.5, space_before=0, space_a
     pf = paragraph.paragraph_format
     pf.first_line_indent = Pt(0)
     pf.line_spacing = line_spacing
-    pf.space_before = Pt(space_before)
-    pf.space_after = Pt(space_after)
+    pf.space_before = space_before if isinstance(space_before, Length) else Pt(space_before)
+    pf.space_after = space_after if isinstance(space_after, Length) else Pt(space_after)
     return paragraph
 
 
@@ -647,8 +647,31 @@ def _repeat_as_header_row(row):
     return element
 
 
-def _set_table_width(table, total_cm, col_count):
-    """固定布局、全表宽、等宽列、整表居中。"""
+def _column_widths_cm(rows_text, total_cm):
+    """按列内容长度分配列宽（平方根阻尼），并保证每列不小于 1.4cm。"""
+    n = len(rows_text[0])
+    maxlen = []
+    for j in range(n):
+        longest = max((len(str(r[j])) for r in rows_text), default=2)
+        maxlen.append(max(longest, 2))
+    weights = [m ** 0.75 for m in maxlen]
+    scale = total_cm / sum(weights)
+    widths = [w * scale for w in weights]
+    min_cm = 1.8
+    # 先补齐过窄列，再从最宽列按比例扣减
+    deficit = sum(min_cm - w for w in widths if w < min_cm)
+    if deficit > 0:
+        widths = [max(w, min_cm) for w in widths]
+        surplus_idx = [i for i, w in enumerate(widths) if w > min_cm]
+        surplus_total = sum(widths[i] - min_cm for i in surplus_idx)
+        for i in surplus_idx:
+            widths[i] -= deficit * (widths[i] - min_cm) / surplus_total
+    scale = total_cm / sum(widths)
+    return [w * scale for w in widths]
+
+
+def _set_table_width(table, total_cm, col_count, rows_text=None):
+    """固定布局、全表宽、整表居中；给出 rows_text 时按内容分配列宽。"""
     table.autofit = False
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
@@ -664,18 +687,21 @@ def _set_table_width(table, total_cm, col_count):
     tblW.set(qn("w:w"), str(int(total_cm * 567)))   # 1cm = 567 twips
     tblW.set(qn("w:type"), "dxa")
 
-    col_cm = total_cm / col_count
-    for column in table.columns:
-        column.width = Cm(col_cm)
+    if rows_text:
+        widths = _column_widths_cm(rows_text, total_cm)
+    else:
+        widths = [total_cm / col_count] * col_count
+    for idx, column in enumerate(table.columns):
+        column.width = Cm(widths[idx])
     for row in table.rows:
-        for cell in row.cells:
-            cell.width = Cm(col_cm)
+        for idx, cell in enumerate(row.cells):
+            cell.width = Cm(widths[idx])
     return table
 
 
-def _fill_cell(cell, text, bold=False):
+def _fill_cell(cell, text, bold=False, align=WD_ALIGN_PARAGRAPH.CENTER):
     cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
-    para = _plain_para(cell.paragraphs[0], WD_ALIGN_PARAGRAPH.CENTER, 1.0, 1, 1)
+    para = _plain_para(cell.paragraphs[0], align, 1.0, 1, 1)
     set_run_font(para.add_run(str(text)), TABLE_SIZE, bold=bold, east_asia=SONG_FONT)
     return para
 
@@ -696,16 +722,20 @@ def add_table(doc, header, rows, caption=None, chapter=1, numbering=None,
             cap_text = caption
         add_table_caption(doc, cap_text, width_cm)
 
+    text_rows = [list(header)] + [list(r) for r in rows]
     table = doc.add_table(rows=len(rows) + header_rows, cols=len(header))
     table.style = doc.styles["Normal Table"]
-    _set_table_width(table, width_cm, len(header))
+    _set_table_width(table, width_cm, len(header), text_rows)
     _set_table_borders(table, header_rows)
 
+    widths = _column_widths_cm(text_rows, width_cm)
     for col, text in enumerate(header):
         _fill_cell(table.cell(0, col), text, bold=True)
     for r, row_values in enumerate(rows, start=header_rows):
         for col, text in enumerate(row_values):
-            _fill_cell(table.cell(r, col), text, bold=False)
+            # 宽列（长文本，如“机理作用”“说明”）左对齐，窄列居中
+            align = WD_ALIGN_PARAGRAPH.LEFT if widths[col] >= 4.2 else WD_ALIGN_PARAGRAPH.CENTER
+            _fill_cell(table.cell(r, col), text, bold=False, align=align)
 
     return table, cap_text
 
