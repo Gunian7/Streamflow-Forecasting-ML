@@ -699,19 +699,27 @@ def _set_table_width(table, total_cm, col_count, rows_text=None):
     return table
 
 
-def _fill_cell(cell, text, bold=False, align=WD_ALIGN_PARAGRAPH.CENTER):
+def _fill_cell(cell, text, bold=False, align=WD_ALIGN_PARAGRAPH.CENTER, size=None):
+    """填一格；文本中的 "\n" 写成显式换行（w:br），用于强制逐条分行、避免长串被硬断。"""
     cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
     para = _plain_para(cell.paragraphs[0], align, 1.0, 1, 1)
-    set_run_font(para.add_run(str(text)), TABLE_SIZE, bold=bold, east_asia=SONG_FONT)
+    font = size if size is not None else TABLE_SIZE
+    for idx, piece in enumerate(str(text).split("\n")):
+        if idx:
+            set_run_font(para.add_run(), font, bold=bold, east_asia=SONG_FONT).add_break()
+        set_run_font(para.add_run(piece), font, bold=bold, east_asia=SONG_FONT)
     return para
 
 
 def add_table(doc, header, rows, caption=None, chapter=1, numbering=None,
-              width_cm=TEXT_WIDTH_CM, header_rows=1):
+              width_cm=TEXT_WIDTH_CM, header_rows=1, col_widths_cm=None, font_size=None):
     """生成三线表；给出 caption 时自动编号（“表 1-1  标题”）并置于表格上方。
 
     header: 表头文本序列；rows: 二维文本序列。
     numbering 为 None 时 caption 原样输出（由调用方自带“表 x-y”前缀）。
+    col_widths_cm: 可选显式列宽（厘米，长度等于列数且合计等于 width_cm）；
+        None 时沿用按内容长度阻尼分配的逻辑，既有调用方行为不变。
+    font_size: 可选表内字号；None 时用 TABLE_SIZE（10.5pt）。
     返回 (table, caption_text)。
     """
     cap_text = None
@@ -725,17 +733,33 @@ def add_table(doc, header, rows, caption=None, chapter=1, numbering=None,
     text_rows = [list(header)] + [list(r) for r in rows]
     table = doc.add_table(rows=len(rows) + header_rows, cols=len(header))
     table.style = doc.styles["Normal Table"]
-    _set_table_width(table, width_cm, len(header), text_rows)
+
+    if col_widths_cm is None:
+        _set_table_width(table, width_cm, len(header), text_rows)
+        widths = _column_widths_cm(text_rows, width_cm)
+    else:
+        widths = [float(w) for w in col_widths_cm]
+        if len(widths) != len(header):
+            raise ValueError("col_widths_cm 长度 %d 与列数 %d 不一致" % (len(widths), len(header)))
+        if abs(sum(widths) - width_cm) > 0.3:
+            raise ValueError("col_widths_cm 合计 %.2fcm 与表宽 %.2fcm 不一致"
+                             % (sum(widths), width_cm))
+        _set_table_width(table, sum(widths), len(header), None)
+        for idx, column in enumerate(table.columns):
+            column.width = Cm(widths[idx])
+        for row in table.rows:
+            for idx, cell in enumerate(row.cells):
+                cell.width = Cm(widths[idx])
+
     _set_table_borders(table, header_rows)
 
-    widths = _column_widths_cm(text_rows, width_cm)
     for col, text in enumerate(header):
-        _fill_cell(table.cell(0, col), text, bold=True)
+        _fill_cell(table.cell(0, col), text, bold=True, size=font_size)
     for r, row_values in enumerate(rows, start=header_rows):
         for col, text in enumerate(row_values):
             # 宽列（长文本，如“机理作用”“说明”）左对齐，窄列居中
             align = WD_ALIGN_PARAGRAPH.LEFT if widths[col] >= 4.2 else WD_ALIGN_PARAGRAPH.CENTER
-            _fill_cell(table.cell(r, col), text, bold=False, align=align)
+            _fill_cell(table.cell(r, col), text, bold=False, align=align, size=font_size)
 
     return table, cap_text
 
