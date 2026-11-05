@@ -218,7 +218,7 @@ def build():
     grid_day7 = d["grid"].iloc[7 - 1]
     grid_multi = d["grid"].iloc[7]
 
-    doc = rs.new_document()
+    doc = rs.new_document(header_text="杭州电子科技大学《机器学习课程实践》阶段验收报告　·　第三次")
     rs.add_cover(
         doc,
         college="自动化学院",

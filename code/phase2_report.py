@@ -331,7 +331,7 @@ def build():
     s_ann = float(ann_day1.loc[ann_day1["日期"] == s_date, "预测径流（cfs）"].iloc[0])
     s_rf = float(rf_day1.loc[rf_day1["日期"] == s_date, "预测径流（cfs）"].iloc[0])
 
-    doc = rs.new_document()
+    doc = rs.new_document(header_text="杭州电子科技大学《机器学习课程实践》阶段验收报告　·　第二次")
     rs.add_cover(
         doc,
         college="自动化学院",
@@ -353,7 +353,7 @@ def build():
         return rs.add_table(doc, header, rows, caption=caption, chapter=chapter, numbering=num)
 
     def NOTE(text):
-        return rs.add_body(doc, text, indent=False, size=Pt(9))
+        return rs.add_figure_note(doc, text)
 
     def FIG(path, caption, chapter, note):
         rs.add_figure(doc, path, caption=caption, chapter=chapter, numbering=num)

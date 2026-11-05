@@ -3,12 +3,20 @@
 
 只暴露函数（无导入副作用）：导入本模块不会创建文件、不会注册全局状态。
 
-排版基线
-    * 正文：中文宋体（SimSun）小四 12pt，行距 1.5 倍，首行缩进 2 字符
-    * 西文/数字：Times New Roman；标题与正文统一宋体加粗体系
-    * 表格：三线表（顶线粗 1.5pt、表头下横线细 0.75pt、底线粗 1.5pt），表题在表上方居中
-    * 图片：图题在图下方居中；图注再小一号（小五 9pt）
-    * 页面：A4，页边距上下 2.54cm、左右 3.17cm，页码居中页脚
+排版体系（正式论文口径）
+    * 页面：A4 210×297mm，页边距上下 2.54cm、左右 3.17cm，页眉距边界 1.5cm、页脚 1.75cm
+    * 页眉：宋体 9pt 居中，文字由调用方传入，段落带 0.5pt 单线下框线；封面节无页眉
+    * 页脚：宋体 9pt 居中 PAGE 页码域，正文节从 1 起编
+    * 一级标题：黑体 16pt 不加粗 居中，段前 18pt / 段后 12pt，与下段同页
+    * 二级标题：黑体 14pt 不加粗 左对齐，段前 12pt / 段后 6pt，与下段同页
+    * 三级标题：黑体 12pt 不加粗 左对齐，段前 6pt / 段后 3pt
+    * 正文：宋体 12pt，1.5 倍行距，首行缩进 2 字符，两端对齐，段前段后 0
+    * 表题：宋体 10.5pt 加粗 居中，段前 6pt / 段后 3pt，与表格同页
+    * 表格：三线表（顶/底线 1.5pt，表头下 0.75pt，其余无线），表内宋体 10.5pt，
+      表头加粗居中，全单元格垂直居中，整表居中，单元格左右边距 0.08cm，表头行跨页重复
+    * 图片：内联居中，段前 6pt / 段后 3pt，宽度上限 14.6cm（超出按比例缩小）
+    * 图题：宋体 10.5pt 加粗 居中，段前 3pt / 段后 3pt
+    * 图注：宋体 9pt 左对齐，无首行缩进，段后 6pt
 """
 
 import os
@@ -16,7 +24,7 @@ from pathlib import Path
 
 from docx import Document
 from docx.enum.section import WD_HEADER_FOOTER, WD_SECTION
-from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -24,7 +32,9 @@ from docx.shared import Cm, Pt, RGBColor
 
 # ---------------------------------------------------------------- 常量
 
-EAST_ASIA_FONT = "宋体"           # 中文正文/标题统一宋体
+SONG_FONT = "宋体"                # 正文、表格、图表题、页眉页脚
+HEI_FONT = "黑体"                 # 各级标题（黑体字面本身即粗体，故不再加粗）
+EAST_ASIA_FONT = SONG_FONT        # 兼容旧名：默认中文字体
 LATIN_FONT = "Times New Roman"    # 西文与数字
 
 BODY_SIZE = Pt(12)                # 小四
@@ -33,28 +43,54 @@ BODY_FIRST_LINE_CHARS = 2         # 首行缩进 2 字符
 BODY_FIRST_LINE_PT = 24           # 2 字符 × 12pt 的等效磅值（回落用）
 
 H1_SIZE = Pt(16)                  # 三号
+H1_SPACE_BEFORE, H1_SPACE_AFTER = Pt(18), Pt(12)
 H2_SIZE = Pt(14)                  # 四号
+H2_SPACE_BEFORE, H2_SPACE_AFTER = Pt(12), Pt(6)
+H3_SIZE = Pt(12)                  # 小四
+H3_SPACE_BEFORE, H3_SPACE_AFTER = Pt(6), Pt(3)
 
 CAPTION_SIZE = Pt(10.5)           # 五号：图题/表题
+CAPTION_SPACE_BEFORE, CAPTION_SPACE_AFTER = Pt(6), Pt(3)
+FIGURE_CAPTION_SPACE_BEFORE, FIGURE_CAPTION_SPACE_AFTER = Pt(3), Pt(3)
 NOTE_SIZE = Pt(9)                 # 小五：图注
+NOTE_SPACE_BEFORE, NOTE_SPACE_AFTER = Pt(0), Pt(6)
 TABLE_SIZE = Pt(10.5)             # 五号：表内文字
+
+HEADER_SIZE = Pt(9)
+FOOTER_SIZE = Pt(9)
 
 COVER_TITLE_SIZE = Pt(22)
 COVER_SUBTITLE_SIZE = Pt(16)
-COVER_FIELD_SIZE = Pt(14)
+COVER_FIELD_SIZE = Pt(12)
+COVER_DATE_SIZE = Pt(14)
 
 PAGE_MARGIN_TB = Cm(2.54)
 PAGE_MARGIN_LR = Cm(3.17)
+PAGE_HEADER_DISTANCE = Cm(1.5)
+PAGE_FOOTER_DISTANCE = Cm(1.75)
 PAGE_WIDTH_CM = 21.0
 PAGE_HEIGHT_CM = 29.7
 TEXT_WIDTH_CM = PAGE_WIDTH_CM - 2 * 3.17   # 14.66cm
+FIGURE_MAX_WIDTH_CM = 14.6                 # 图片宽度上限
+TABLE_CELL_MARGIN_CM = 0.08                # 单元格左右边距
 
 THICK_LINE_SZ = "12"   # 1.5 磅 = 12 个 1/8 磅
 THIN_LINE_SZ = "6"     # 0.75 磅 = 6 个 1/8 磅
+HEADER_LINE_SZ = "4"   # 0.5 磅 = 4 个 1/8 磅
+
+TABLE_CELL_MARGIN_TWIPS = str(int(round(TABLE_CELL_MARGIN_CM * 567)))  # 1cm = 567 twips
 
 THEME_ATTRS = ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme")
 
-# OOXML 子元素顺序（Word 对 tblPr/tcPr 内的顺序敏感，乱序可能被静默忽略）
+# OOXML 子元素顺序（Word 对 pPr/tblPr/tcPr 内的顺序敏感，乱序可能被静默忽略）
+_PPR_SEQ = ("w:pStyle", "w:keepNext", "w:keepLines", "w:pageBreakBefore", "w:framePr",
+            "w:widowControl", "w:numPr", "w:suppressLineNumbers", "w:pBdr", "w:shd",
+            "w:tabs", "w:suppressAutoHyphens", "w:kinsoku", "w:wordWrap",
+            "w:overflowPunct", "w:topLinePunct", "w:autoSpaceDE", "w:autoSpaceDN",
+            "w:bidi", "w:adjustRightInd", "w:snapToGrid", "w:spacing", "w:ind",
+            "w:contextualSpacing", "w:mirrorIndents", "w:suppressOverlap", "w:jc",
+            "w:textDirection", "w:textAlignment", "w:textboxTightWrap", "w:outlineLvl",
+            "w:divId", "w:cnfStyle", "w:rPr", "w:sectPr", "w:pPrChange")
 _TBLPR_SEQ = ("w:tblStyle", "w:tblpPr", "w:tblOverlap", "w:bidiVisual",
               "w:tblStyleRowBandSize", "w:tblStyleColBandSize", "w:tblW", "w:jc",
               "w:tblCellSpacing", "w:tblInd", "w:tblBorders", "w:shd", "w:tblLayout",
@@ -68,6 +104,9 @@ _SECTPR_SEQ = ("w:headerReference", "w:footerReference", "w:footnotePr", "w:endn
                "w:pgNumType", "w:cols", "w:formProt", "w:vAlign", "w:noEndnote",
                "w:titlePg", "w:textDirection", "w:bidi", "w:rtlGutter", "w:docGrid",
                "w:printerSettings", "w:sectPrChange")
+
+# 页眉文字待写槽：new_document(header_text=...) 先登记，begin_body_section 落到正文节
+_PENDING_HEADER = {}
 
 
 # ---------------------------------------------------------------- 底层工具
@@ -100,7 +139,7 @@ def _insert_ordered(parent, element, seq):
     return element
 
 
-def _set_rfonts(rPr, east_asia=EAST_ASIA_FONT, latin=None):
+def _set_rfonts(rPr, east_asia=SONG_FONT, latin=None):
     """写 w:rFonts：中文走 eastAsia，西文走 ascii/hAnsi，并清掉主题字体属性。"""
     latin = latin or latin_font_name()
     rFonts = rPr.find(qn("w:rFonts"))
@@ -124,7 +163,7 @@ def _blacken(rPr):
             color.attrib.pop(qn("w:" + attr), None)
 
 
-def set_run_font(run, size, bold=False, east_asia=EAST_ASIA_FONT, latin=None):
+def set_run_font(run, size, bold=False, east_asia=SONG_FONT, latin=None):
     """设定单个 run 的中西文字体、字号、加粗与纯黑颜色。
 
     中文必须写在 w:rFonts/@w:eastAsia 上：python-docx 的 run.font.name 只覆盖
@@ -139,7 +178,7 @@ def set_run_font(run, size, bold=False, east_asia=EAST_ASIA_FONT, latin=None):
     return run
 
 
-def _style_font(style, size, bold=False, east_asia=EAST_ASIA_FONT, latin=None):
+def _style_font(style, size, bold=False, east_asia=SONG_FONT, latin=None):
     """配置段落样式（Normal / Heading N）的中西文字体、字号、加粗。"""
     style.font.size = size
     style.font.bold = bold
@@ -155,16 +194,38 @@ def _set_first_line_chars(paragraph, chars):
     pPr = paragraph._p.get_or_add_pPr()
     ind = pPr.find(qn("w:ind"))
     if ind is None:
-        ind = OxmlElement("w:ind")
-        pPr.append(ind)
+        ind = _insert_ordered(pPr, OxmlElement("w:ind"), _PPR_SEQ)
     ind.set(qn("w:firstLineChars"), str(int(chars * 100)))
     return ind
 
 
-def _add_page_field(paragraph):
+def _clear_paragraph(paragraph):
+    """清空段落的 run、域与超链接，只保留段落外壳（used by 页眉/页脚）。"""
+    for tag in ("w:r", "w:fldSimple", "w:hyperlink"):
+        for child in paragraph._p.findall(qn(tag)):
+            paragraph._p.remove(child)
+    return paragraph
+
+
+def _set_paragraph_bottom_border(paragraph, sz=HEADER_LINE_SZ):
+    """给段落加一条下框线（页眉下边线）。"""
+    pPr = paragraph._p.get_or_add_pPr()
+    for old in pPr.findall(qn("w:pBdr")):
+        pPr.remove(old)
+    pBdr = _insert_ordered(pPr, OxmlElement("w:pBdr"), _PPR_SEQ)
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single")
+    bottom.set(qn("w:sz"), sz)
+    bottom.set(qn("w:space"), "1")
+    bottom.set(qn("w:color"), "000000")
+    pBdr.append(bottom)
+    return pBdr
+
+
+def _add_page_field(paragraph, size=FOOTER_SIZE):
     """在段落内插入 PAGE 域（begin/instrText/separate/占位文本/end）。"""
     run = paragraph.add_run()
-    set_run_font(run, Pt(10.5), bold=False)
+    set_run_font(run, size, bold=False)
 
     begin = OxmlElement("w:fldChar")
     begin.set(qn("w:fldCharType"), "begin")
@@ -212,8 +273,12 @@ class Numbering:
 # ---------------------------------------------------------------- 文档与页面
 
 
-def new_document():
-    """新建 A4 文档：页边距、正文样式、标题样式、页码居中页脚一并就位。"""
+def new_document(header_text=None):
+    """新建 A4 文档：页面、正文样式、标题样式、页脚页码一并就位。
+
+    header_text 给出时登记为该文档的正文页眉文字，在 begin_body_section 时
+    落到正文节（封面节始终无页眉）。也可稍后调用 set_header(doc, text)。
+    """
     doc = Document()
 
     section = doc.sections[0]
@@ -223,32 +288,39 @@ def new_document():
     section.bottom_margin = PAGE_MARGIN_TB
     section.left_margin = PAGE_MARGIN_LR
     section.right_margin = PAGE_MARGIN_LR
-    section.header_distance = Cm(1.5)
-    section.footer_distance = Cm(1.75)
+    section.header_distance = PAGE_HEADER_DISTANCE
+    section.footer_distance = PAGE_FOOTER_DISTANCE
 
     normal = doc.styles["Normal"]
-    _style_font(normal, BODY_SIZE, bold=False)
+    _style_font(normal, BODY_SIZE, bold=False, east_asia=SONG_FONT)
     pf = normal.paragraph_format
     pf.line_spacing = BODY_LINE_SPACING
     pf.space_before = Pt(0)
     pf.space_after = Pt(0)
     pf.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
-    for name, size in (("Heading 1", H1_SIZE), ("Heading 2", H2_SIZE)):
+    for name, size, before, after, align in (
+            ("Heading 1", H1_SIZE, H1_SPACE_BEFORE, H1_SPACE_AFTER, WD_ALIGN_PARAGRAPH.CENTER),
+            ("Heading 2", H2_SIZE, H2_SPACE_BEFORE, H2_SPACE_AFTER, WD_ALIGN_PARAGRAPH.LEFT),
+            ("Heading 3", H3_SIZE, H3_SPACE_BEFORE, H3_SPACE_AFTER, WD_ALIGN_PARAGRAPH.LEFT)):
         style = doc.styles[name]
-        _style_font(style, size, bold=True)
+        _style_font(style, size, bold=False, east_asia=HEI_FONT)
         spf = style.paragraph_format
         spf.line_spacing = 1.5
         spf.first_line_indent = Pt(0)
+        spf.space_before = before
+        spf.space_after = after
+        spf.alignment = align
         spf.keep_with_next = True
 
     footer = section.footer
     footer.is_linked_to_previous = False
     fp = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
-    fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    fp.paragraph_format.first_line_indent = Pt(0)
-    fp.paragraph_format.line_spacing = 1.0
+    _plain_para(fp, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 0, 0)
     _add_page_field(fp)
+
+    if header_text:
+        _PENDING_HEADER["text"] = header_text
 
     return doc
 
@@ -265,19 +337,15 @@ def add_page_break(doc):
 def _clear_footer(footer):
     """清空页脚各段落的全部内容（run 与域），只保留空段落外壳。"""
     for paragraph in footer.paragraphs:
-        for tag in ("w:r", "w:fldSimple", "w:hyperlink"):
-            for child in paragraph._p.findall(qn(tag)):
-                paragraph._p.remove(child)
+        _clear_paragraph(paragraph)
     return footer
 
 
 def _fill_footer_page_number(footer):
-    """把页脚首段做成居中的 PAGE 页码域。"""
+    """把页脚首段做成居中的 PAGE 页码域（宋体 9pt）。"""
     paragraph = footer.paragraphs[0]
-    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    pf = paragraph.paragraph_format
-    pf.first_line_indent = Pt(0)
-    pf.line_spacing = 1.0
+    _clear_paragraph(paragraph)
+    _plain_para(paragraph, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 0, 0)
     _add_page_field(paragraph)
     return paragraph
 
@@ -292,33 +360,78 @@ def _set_section_page_start(section, start):
     return pgNumType
 
 
-def begin_body_section(doc, restart_at=1):
-    """在当前位置分节（新页）：封面节用空白页脚，正文节页码从 restart_at 重新起编。
+def _fill_header(header, text):
+    """把页眉首段做成宋体 9pt 居中 + 0.5pt 下框线的单行文字。"""
+    paragraph = header.paragraphs[0] if header.paragraphs else header.add_paragraph()
+    _clear_paragraph(paragraph)
+    _plain_para(paragraph, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 0, 0)
+    set_run_font(paragraph.add_run(text), HEADER_SIZE, bold=False, east_asia=SONG_FONT)
+    _set_paragraph_bottom_border(paragraph)
+    return paragraph
+
+
+def _attach_header(doc, section, text):
+    """给指定节挂一个独立的页眉 part 并写入文字（不影响其它节）。"""
+    _header_part, r_id = doc.part.add_header_part()
+    sectPr = section._sectPr
+    reference = sectPr.get_headerReference(WD_HEADER_FOOTER.PRIMARY)
+    if reference is not None:
+        reference.rId = r_id
+    else:
+        sectPr.add_headerReference(WD_HEADER_FOOTER.PRIMARY, r_id)
+    return _fill_header(section.header, text)
+
+
+def begin_body_section(doc, restart_at=1, header_text=None):
+    """在当前位置分节（新页）：封面节无页眉无页脚，正文节页码从 restart_at 起编。
 
     在封面内容之后、正文之前调用一次；不要再额外调用 add_page_break（分节符已换页）。
     返回正文所属的新 Section。
 
     实现要点：Document.add_section 会把原 sectPr 克隆进新段落，两节因此共用同一个
-    footer part；而 is_linked_to_previous=True 走的是 drop_rel，会把前一节仍在引用的
-    关系一并删掉（遗留悬空 rId）。所以这里直接给新节挂一个全新的空页脚 part，
-    前一节的页脚只做内容清空，不动关系。
+    header/footer part；而 is_linked_to_previous=True 走的是 drop_rel，会把前一节仍在
+    引用的关系一并删掉（遗留悬空 rId）。所以这里直接给新节各挂一个全新的空 part，
+    前一节的页眉页脚只做内容清空，不动关系。
     """
     new_section = doc.add_section(WD_SECTION.NEW_PAGE)
 
-    _footer_part, r_id = doc.part.add_footer_part()
+    _footer_part, footer_id = doc.part.add_footer_part()
     sectPr = new_section._sectPr
     reference = sectPr.get_footerReference(WD_HEADER_FOOTER.PRIMARY)
     if reference is not None:
-        reference.rId = r_id          # 改指向新 part，旧 part 仍归封面节
+        reference.rId = footer_id          # 改指向新 part，旧 part 仍归封面节
     else:
-        sectPr.add_footerReference(WD_HEADER_FOOTER.PRIMARY, r_id)
+        sectPr.add_footerReference(WD_HEADER_FOOTER.PRIMARY, footer_id)
 
     if len(doc.sections) >= 2:
-        _clear_footer(doc.sections[-2].footer)   # 封面节：空白页脚，无 PAGE 域
+        cover = doc.sections[-2]
+        _clear_footer(cover.footer)               # 封面节：空白页脚，无 PAGE 域
+        for ref in list(cover._sectPr.findall(qn("w:headerReference"))):
+            cover._sectPr.remove(ref)             # 封面节：不留页眉引用
 
     _set_section_page_start(new_section, restart_at)
     _fill_footer_page_number(new_section.footer)
+
+    text = header_text if header_text is not None else _PENDING_HEADER.get("text")
+    if text:
+        _attach_header(doc, new_section, text)
+    _PENDING_HEADER.pop("text", None)
     return new_section
+
+
+def set_header(doc, text):
+    """设置正文页眉文字（宋体 9pt 居中 + 下框线）。
+
+    正文节已存在时立即写入该节；否则登记待写槽，由 begin_body_section 落地。
+    封面节始终不显示页眉。
+    """
+    if not text:
+        return None
+    if len(doc.sections) >= 2:
+        _PENDING_HEADER.pop("text", None)
+        return _attach_header(doc, doc.sections[-1], text)
+    _PENDING_HEADER["text"] = text
+    return None
 
 
 # ---------------------------------------------------------------- 封面
@@ -377,18 +490,19 @@ def add_cover(doc, college="", major="", class_name="", advisor="", student_ids=
     """生成封面：主标题 + 副标题 + 8 行字段（值带下划线）+ 日期。
 
     字段顺序固定：学院 / 专业 / 班级 / 指导教师 / 学号 / 姓名 / 实践项目 / 报告内容。
+    标题与日期用黑体/宋体按论文口径排布，字段名与字段值均为宋体 12pt。
     """
     if title is None:
         title = "杭州电子科技大学《机器学习课程实践》阶段验收报告"
 
     p = doc.add_paragraph()
     _plain_para(p, WD_ALIGN_PARAGRAPH.CENTER, 1.5, 60, 12)
-    set_run_font(p.add_run(title), COVER_TITLE_SIZE, bold=True)
+    set_run_font(p.add_run(title), COVER_TITLE_SIZE, bold=False, east_asia=HEI_FONT)
 
     if subtitle:
         p = doc.add_paragraph()
         _plain_para(p, WD_ALIGN_PARAGRAPH.CENTER, 1.5, 0, 36)
-        set_run_font(p.add_run(subtitle), COVER_SUBTITLE_SIZE, bold=True)
+        set_run_font(p.add_run(subtitle), COVER_SUBTITLE_SIZE, bold=False, east_asia=HEI_FONT)
 
     values = {"学院": college, "专业": major, "班级": class_name, "指导教师": advisor,
               "学号": student_ids, "姓名": names, "实践项目": project, "报告内容": content}
@@ -404,19 +518,22 @@ def add_cover(doc, college="", major="", class_name="", advisor="", student_ids=
         row.height = Cm(1.15)
         for idx, cell in enumerate(row.cells):
             cell.width = label_width if idx == 0 else value_width
+            cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
             para = _plain_para(cell.paragraphs[0], None, 1.5, 0, 0)
             if idx == 0:
                 para.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                set_run_font(para.add_run(_cover_label(field)), COVER_FIELD_SIZE, bold=False)
+                set_run_font(para.add_run(_cover_label(field)), COVER_FIELD_SIZE,
+                             bold=False, east_asia=SONG_FONT)
             else:
                 para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                set_run_font(para.add_run(values.get(field, "")), COVER_FIELD_SIZE, bold=False)
+                set_run_font(para.add_run(values.get(field, "")), COVER_FIELD_SIZE,
+                             bold=False, east_asia=SONG_FONT)
                 _set_cell_bottom_border(cell)
 
     if date_text:
         p = doc.add_paragraph()
         _plain_para(p, WD_ALIGN_PARAGRAPH.CENTER, 1.5, 48, 0)
-        set_run_font(p.add_run(date_text), COVER_FIELD_SIZE, bold=False)
+        set_run_font(p.add_run(date_text), COVER_DATE_SIZE, bold=False, east_asia=SONG_FONT)
 
     return doc
 
@@ -424,22 +541,35 @@ def add_cover(doc, college="", major="", class_name="", advisor="", student_ids=
 # ---------------------------------------------------------------- 标题与正文
 
 
-def _heading(doc, text, level, size):
+_HEADING_SPECS = {
+    1: (H1_SIZE, WD_ALIGN_PARAGRAPH.CENTER, H1_SPACE_BEFORE, H1_SPACE_AFTER),
+    2: (H2_SIZE, WD_ALIGN_PARAGRAPH.LEFT, H2_SPACE_BEFORE, H2_SPACE_AFTER),
+    3: (H3_SIZE, WD_ALIGN_PARAGRAPH.LEFT, H3_SPACE_BEFORE, H3_SPACE_AFTER),
+}
+
+
+def _heading(doc, text, level):
+    size, align, before, after = _HEADING_SPECS[level]
     paragraph = doc.add_paragraph(style="Heading %d" % level)
-    _plain_para(paragraph, WD_ALIGN_PARAGRAPH.LEFT, 1.5, 12 if level == 1 else 9, 6)
+    _plain_para(paragraph, align, BODY_LINE_SPACING, before, after)
     paragraph.paragraph_format.keep_with_next = True
-    set_run_font(paragraph.add_run(text), size, bold=True)
+    set_run_font(paragraph.add_run(text), size, bold=False, east_asia=HEI_FONT)
     return paragraph
 
 
 def add_heading1(doc, text):
-    """一级标题：宋体加粗 三号 16pt。"""
-    return _heading(doc, text, 1, H1_SIZE)
+    """一级标题：黑体 16pt 不加粗 居中，段前 18pt、段后 12pt，与下段同页。"""
+    return _heading(doc, text, 1)
 
 
 def add_heading2(doc, text):
-    """二级标题：宋体加粗 四号 14pt。"""
-    return _heading(doc, text, 2, H2_SIZE)
+    """二级标题：黑体 14pt 不加粗 左对齐，段前 12pt、段后 6pt，与下段同页。"""
+    return _heading(doc, text, 2)
+
+
+def add_heading3(doc, text):
+    """三级标题：黑体 12pt 不加粗 左对齐，段前 6pt、段后 3pt。"""
+    return _heading(doc, text, 3)
 
 
 def add_body(doc, text, indent=True, size=BODY_SIZE, align=WD_ALIGN_PARAGRAPH.JUSTIFY):
@@ -449,7 +579,7 @@ def add_body(doc, text, indent=True, size=BODY_SIZE, align=WD_ALIGN_PARAGRAPH.JU
     if indent:
         paragraph.paragraph_format.first_line_indent = Pt(BODY_FIRST_LINE_PT)
         _set_first_line_chars(paragraph, BODY_FIRST_LINE_CHARS)
-    set_run_font(paragraph.add_run(text), size, bold=False)
+    set_run_font(paragraph.add_run(text), size, bold=False, east_asia=SONG_FONT)
     return paragraph
 
 
@@ -457,13 +587,14 @@ def add_body(doc, text, indent=True, size=BODY_SIZE, align=WD_ALIGN_PARAGRAPH.JU
 
 
 def add_table_caption(doc, caption, width_cm=TEXT_WIDTH_CM):
-    """表题：表格上方、居中、与表格同宽（左右缩进归零）。"""
+    """表题：表格上方、居中、宋体 10.5pt 加粗，段前 6pt、段后 3pt，与表格同页。"""
     paragraph = doc.add_paragraph()
-    _plain_para(paragraph, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 6, 3)
+    _plain_para(paragraph, WD_ALIGN_PARAGRAPH.CENTER, 1.0,
+                CAPTION_SPACE_BEFORE.pt, CAPTION_SPACE_AFTER.pt)
     paragraph.paragraph_format.keep_with_next = True
     paragraph.paragraph_format.left_indent = Cm(0)
     paragraph.paragraph_format.right_indent = Cm(0)
-    set_run_font(paragraph.add_run(caption), CAPTION_SIZE, bold=True)
+    set_run_font(paragraph.add_run(caption), CAPTION_SIZE, bold=True, east_asia=SONG_FONT)
     return paragraph
 
 
@@ -491,11 +622,13 @@ def _set_table_borders(table, header_rows=1):
     for row in list(table.rows)[:header_rows]:
         for cell in row.cells:
             _set_cell_bottom_border(cell, THIN_LINE_SZ)
+        _repeat_as_header_row(row)
 
     for old in tblPr.findall(qn("w:tblCellMar")):
         tblPr.remove(old)
     cellMar = _insert_ordered(tblPr, OxmlElement("w:tblCellMar"), _TBLPR_SEQ)
-    for edge, width in (("top", "0"), ("left", "80"), ("bottom", "0"), ("right", "80")):
+    for edge, width in (("top", "0"), ("left", TABLE_CELL_MARGIN_TWIPS),
+                        ("bottom", "0"), ("right", TABLE_CELL_MARGIN_TWIPS)):
         el = OxmlElement("w:" + edge)
         el.set(qn("w:w"), width)
         el.set(qn("w:type"), "dxa")
@@ -503,8 +636,19 @@ def _set_table_borders(table, header_rows=1):
     return borders
 
 
+def _repeat_as_header_row(row):
+    """把行标记为“跨页重复标题行”（w:trPr/w:tblHeader）。"""
+    trPr = row._tr.get_or_add_trPr()
+    for old in trPr.findall(qn("w:tblHeader")):
+        trPr.remove(old)
+    element = OxmlElement("w:tblHeader")
+    element.set(qn("w:val"), "true")
+    trPr.append(element)          # tblHeader 位于 trPr 尾部合法区间
+    return element
+
+
 def _set_table_width(table, total_cm, col_count):
-    """固定布局、全表宽、等宽列。"""
+    """固定布局、全表宽、等宽列、整表居中。"""
     table.autofit = False
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
@@ -530,8 +674,9 @@ def _set_table_width(table, total_cm, col_count):
 
 
 def _fill_cell(cell, text, bold=False):
+    cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
     para = _plain_para(cell.paragraphs[0], WD_ALIGN_PARAGRAPH.CENTER, 1.0, 1, 1)
-    set_run_font(para.add_run(str(text)), TABLE_SIZE, bold=bold)
+    set_run_font(para.add_run(str(text)), TABLE_SIZE, bold=bold, east_asia=SONG_FONT)
     return para
 
 
@@ -568,11 +713,23 @@ def add_table(doc, header, rows, caption=None, chapter=1, numbering=None,
 # ---------------------------------------------------------------- 插图
 
 
+def _place_picture(paragraph, source, cap_cm):
+    """插入内联图片；宽度不超过 cap_cm，超出时按原比例缩小。"""
+    picture = paragraph.add_run().add_picture(source)
+    limit = Cm(cap_cm)
+    if picture.width > limit:
+        ratio = limit / picture.width
+        picture.height = int(picture.height * ratio)
+        picture.width = int(limit)
+    return picture
+
+
 def add_figure(doc, image_path, caption=None, chapter=1, numbering=None,
-               width_cm=TEXT_WIDTH_CM - 0.6):
+               width_cm=FIGURE_MAX_WIDTH_CM):
     """插入插图；给出 caption 时自动编号并置于图下方居中。
 
     image_path 可为路径，也可为已打开的文件对象（如内存中的 BytesIO）。
+    图片宽度以 width_cm（默认上限 14.6cm）封顶，超出按比例缩小。
     返回 (image_paragraph, caption_text)。
     """
     source = image_path if hasattr(image_path, "read") else str(image_path)
@@ -580,7 +737,7 @@ def add_figure(doc, image_path, caption=None, chapter=1, numbering=None,
     paragraph = doc.add_paragraph()
     _plain_para(paragraph, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 6, 3)
     paragraph.paragraph_format.keep_with_next = True
-    paragraph.add_run().add_picture(source, width=Cm(width_cm))
+    _place_picture(paragraph, source, width_cm)
 
     cap_text = None
     if caption is not None:
@@ -589,24 +746,27 @@ def add_figure(doc, image_path, caption=None, chapter=1, numbering=None,
         else:                     # 未给编号器时按调用方原文输出（调用方自带编号）
             cap_text = caption
         cap_para = doc.add_paragraph()
-        _plain_para(cap_para, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 3, 6)
-        set_run_font(cap_para.add_run(cap_text), CAPTION_SIZE, bold=True)
+        _plain_para(cap_para, WD_ALIGN_PARAGRAPH.CENTER, 1.0,
+                    FIGURE_CAPTION_SPACE_BEFORE.pt, FIGURE_CAPTION_SPACE_AFTER.pt)
+        set_run_font(cap_para.add_run(cap_text), CAPTION_SIZE, bold=True, east_asia=SONG_FONT)
 
     return paragraph, cap_text
 
 
 def add_figure_note(doc, text):
-    """图注：图题之下的补充说明，小五 9pt，居中，无首行缩进。"""
+    """图注：图题之下的补充说明，宋体 9pt 左对齐，无首行缩进，段后 6pt。"""
     paragraph = doc.add_paragraph()
-    _plain_para(paragraph, WD_ALIGN_PARAGRAPH.CENTER, 1.0, 0, 9)
-    set_run_font(paragraph.add_run(text), NOTE_SIZE, bold=False)
+    _plain_para(paragraph, WD_ALIGN_PARAGRAPH.LEFT, 1.0,
+                NOTE_SPACE_BEFORE.pt, NOTE_SPACE_AFTER.pt)
+    set_run_font(paragraph.add_run(text), NOTE_SIZE, bold=False, east_asia=SONG_FONT)
     return paragraph
 
 
 __all__ = [
-    "new_document", "add_cover", "add_heading1", "add_heading2", "add_body",
-    "add_table", "add_table_caption", "add_figure", "add_figure_note",
-    "add_page_break", "begin_body_section", "set_run_font", "latin_font_name", "Numbering",
-    "EAST_ASIA_FONT", "LATIN_FONT", "BODY_SIZE", "BODY_LINE_SPACING",
-    "COVER_FIELDS",
+    "new_document", "set_header", "add_cover", "add_heading1", "add_heading2",
+    "add_heading3", "add_body", "add_table", "add_table_caption", "add_figure",
+    "add_figure_note", "add_page_break", "begin_body_section", "set_run_font",
+    "latin_font_name", "Numbering",
+    "EAST_ASIA_FONT", "SONG_FONT", "HEI_FONT", "LATIN_FONT", "BODY_SIZE",
+    "BODY_LINE_SPACING", "FIGURE_MAX_WIDTH_CM", "COVER_FIELDS",
 ]

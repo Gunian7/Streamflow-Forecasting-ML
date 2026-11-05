@@ -189,7 +189,7 @@ def cover_fields():
 
 
 # ---------------------------------------------------------------- 文档
-doc = new_document()
+doc = new_document(header_text="杭州电子科技大学《机器学习课程实践》阶段验收报告　·　第一次")
 add_cover(
     doc,
     college="自动化学院",
