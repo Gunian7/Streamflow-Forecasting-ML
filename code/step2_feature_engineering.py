@@ -31,7 +31,9 @@ DATA_OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(DATA_OUT_DIR, exist_ok=True)
 
-DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '01047000.csv')
+DATA_PATH = os.environ.get(
+    'RUNOFF_DATA_PATH',
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '01047000.csv'))
 
 def get_season(month):
     if month in [3, 4, 5]:
