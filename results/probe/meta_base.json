@@ -1,0 +1,79 @@
+{
+  "source": "01047000.csv",
+  "v5": {
+    "数据文件": "F:\\Desktop\\学习\\机器学习课程实践\\01047000.csv",
+    "训练起": "2000-01-10",
+    "训练止": "2003-12-24",
+    "训练样本": 1445,
+    "测试起": "2004-01-01",
+    "测试止": "2004-12-24",
+    "测试样本": 359,
+    "特征数量": 65,
+    "含当天径流": true,
+    "含积雪特征": true,
+    "剔除零方差列": [
+      "Swe",
+      "Swe_melt1",
+      "Swe_melt_3",
+      "Swe_melt_7",
+      "Swe_roll_mean_7",
+      "Snow_cover"
+    ]
+  },
+  "enhanced": {
+    "数据文件": "F:\\Desktop\\学习\\机器学习课程实践\\01047000.csv",
+    "训练起": "2000-01-10",
+    "训练止": "2003-12-24",
+    "训练样本": 1445,
+    "测试起": "2004-01-01",
+    "测试止": "2004-12-24",
+    "测试样本": 359,
+    "特征数量": 65,
+    "含当天径流": true,
+    "含积雪特征": true,
+    "剔除零方差列": [
+      "Swe",
+      "Swe_melt1",
+      "Swe_melt_3",
+      "Swe_melt_7",
+      "Swe_roll_mean_7",
+      "Snow_cover"
+    ],
+    "enhanced_features": 23,
+    "total_features": 88,
+    "added_feature_names": [
+      "Discharge_ewm3",
+      "Discharge_ewm7",
+      "Prcp_ewm3",
+      "Prcp_ewm7",
+      "Tmax_ewm3",
+      "Tmax_ewm7",
+      "Discharge_diff1",
+      "Discharge_diff3",
+      "Prcp_diff1",
+      "Prcp_diff3",
+      "Swe_diff1",
+      "Swe_diff3",
+      "Prcp_x_Tmax",
+      "Swe_x_PDD",
+      "Prcp_x_Swe",
+      "Discharge_std_3",
+      "Prcp_std_3",
+      "Discharge_std_7",
+      "Prcp_std_7",
+      "Prcp_cum3",
+      "Prcp_cum7",
+      "PDD_cum3",
+      "Q_to_P_ratio"
+    ]
+  },
+  "lstm": {
+    "fit_rows": 1144,
+    "val_rows": 288,
+    "epochs_run": 28
+  },
+  "test_rows_v5": 359,
+  "test_rows_enhanced": 353,
+  "feature_cols_v5_n": 65,
+  "feature_cols_enhanced_n": 88
+}

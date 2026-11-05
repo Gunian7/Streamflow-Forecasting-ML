@@ -1,0 +1,66 @@
+{
+  "path": "F:\\Desktop\\学习\\机器学习课程实践\\01047000_fixed.csv",
+  "shape": [
+    1827,
+    9
+  ],
+  "columns": [
+    "Date",
+    "Discharge",
+    "Dayl",
+    "Prcp",
+    "Srad",
+    "Swe",
+    "Tmax",
+    "Tmin",
+    "Vp"
+  ],
+  "date_span": [
+    "2000-01-01",
+    "2004-12-31"
+  ],
+  "consecutive_days": true,
+  "swe": {
+    "min": 0.0,
+    "mean": 54.27537493158182,
+    "max": 253.31,
+    "nonzero": 866
+  },
+  "daymet_missing_dates": [
+    "2000-12-31",
+    "2004-12-31"
+  ],
+  "align_max_abs": {
+    "Dayl": {
+      "max_abs": 0.0,
+      "rows_over_0.005": 0
+    },
+    "Prcp": {
+      "max_abs": 0.0,
+      "rows_over_0.005": 0
+    },
+    "Srad": {
+      "max_abs": 0.0,
+      "rows_over_0.005": 0
+    },
+    "Swe": {
+      "max_abs": 0.0,
+      "rows_over_0.005": 0
+    },
+    "Tmax": {
+      "max_abs": 0.0,
+      "rows_over_0.005": 0
+    },
+    "Tmin": {
+      "max_abs": 0.0,
+      "rows_over_0.005": 0
+    },
+    "Vp": {
+      "max_abs": 0.0,
+      "rows_over_0.005": 0
+    }
+  },
+  "align_max_abs_all": 0.0,
+  "discharge_identical_to_base": true,
+  "date_identical_to_base": true
+}

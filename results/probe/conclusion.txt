@@ -1,0 +1,1 @@
+重建数据源（01047000_fixed.csv）下最佳第 1 天 R² = 0.8507（LSTM（PyTorch, 早停），RMSE=328.0 cfs），达到 0.70 阈值；相对现用数据最佳（ANN（MLPRegressor, log1p），R²=0.4958，RMSE=597.9 cfs）整体提升 ΔR²=+0.3550。

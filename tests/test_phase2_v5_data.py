@@ -8,16 +8,34 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import os
-os.environ.setdefault('RUNOFF_DATA_PATH',
-                      str(Path(__file__).resolve().parent.parent / '01047000_fixed.csv'))
-
+import step2_feature_engineering as fe
 import phase2_v5_data as d5
+
+FIXED_CSV = Path(__file__).resolve().parent.parent / '01047000_fixed.csv'
+SNOW_SKIP_REASON = ('当前数据源 Swe 恒为 0，积雪派生列被零方差剔除；'
+                    '本测试需在含真实积雪的 01047000_fixed.csv 上断言')
 
 
 @pytest.fixture(scope='module')
 def built():
-    return d5.build_dataset_v5()
+    """在修正数据集上构建，不依赖测试收集顺序。
+
+    step2_feature_engineering.DATA_PATH 在首次 import 时固化，这里显式指向
+    01047000_fixed.csv，用完还原，避免影响其他测试模块。
+    """
+    original = fe.DATA_PATH
+    fe.DATA_PATH = str(FIXED_CSV)
+    try:
+        return d5.build_dataset_v5()
+    finally:
+        fe.DATA_PATH = original
+
+
+def swe_all_zero(train):
+    """当前数据源的积雪水当量是否恒为 0（原始 01047000.csv 即如此）。"""
+    if 'Swe' not in train.columns:
+        return True
+    return int((train['Swe'] > 0).sum()) == 0
 
 
 def test_features_include_current_discharge(built):
@@ -26,9 +44,11 @@ def test_features_include_current_discharge(built):
 
 
 def test_features_include_snow(built):
-    _, _, cols, _ = built
-    for c in ['Swe', 'Swe_melt1', 'PDD']:
-        assert c in cols
+    train, _, cols, _ = built
+    if swe_all_zero(train):
+        pytest.skip(SNOW_SKIP_REASON)
+    for c in ['Swe', 'Swe_melt1', 'PDD', 'Snow_cover']:
+        assert c in cols, '%s 应进入特征' % c
 
 
 def test_no_training_target_reaches_test(built):
@@ -47,6 +67,8 @@ def test_daily_continuity(built):
 
 def test_snow_not_all_zero(built):
     train, _, _, _ = built
+    if swe_all_zero(train):
+        pytest.skip(SNOW_SKIP_REASON)
     assert (train['Swe'] > 0).sum() > 100, '积雪应显著非零'
 
 

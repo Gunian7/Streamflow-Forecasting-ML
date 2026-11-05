@@ -61,7 +61,8 @@ def metrics(y, p):
     ss_res = float(np.sum((y - p) ** 2))
     ss_tot = float(np.sum((y - np.mean(y)) ** 2))
     return {'RMSE（cfs）': rmse, 'MAE（cfs）': mae,
-            'R²': 1 - ss_res / ss_tot, 'NSE': 1 - ss_res / ss_tot}
+            'R²': 1 - ss_res / ss_tot, 'NSE': 1 - ss_res / ss_tot,
+            '样本数': int(len(y))}
 
 
 def run_search(X, Y, log_target=True):

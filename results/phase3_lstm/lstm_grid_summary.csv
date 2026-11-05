@@ -1,0 +1,3 @@
+﻿task,best_hidden_layers,best_alpha,cv_rmse
+direct_day1,"(64,)",0.01,556.7743169351642
+multi_output,"(64,)",0.01,812.3728594243844

@@ -1,0 +1,168 @@
+===== stage5 start 22:12:57
+[时长] stage5: 累计 0.0 分钟
+特征提取完毕: 原始样本数 1827, 清洗后有效样本数 1813, 特征总列数 77
+特征提取完毕: 原始样本数 1827, 清洗后有效样本数 1813, 特征总列数 77
+[数据] 训练 1434 行 / 测试 353 行；基础特征 71 维，增强特征 94 维
+[预测] 直接策略 6 个基学习器测试集预测完成
+[预测] 多输出策略 3 个基学习器测试集预测完成
+[Stacking] 训练段 1434 行；元特征留出块=最后 287 行（索引 1147 起）
+  留出块重训 ANN 第1天 -> 1.4s
+  留出块重训 RF 第1天 -> 6.3s
+  留出块重训 XGBoost 第1天 -> 2.3s
+  留出块重训 LightGBM 第1天 -> 1.4s
+  留出块重训 PyTorch-LSTM 第1天 -> 15.7s
+  留出块重训 PseudoLSTM 第1天 -> 0.4s
+  留出块重训 ANN 第2天 -> 2.1s
+  留出块重训 RF 第2天 -> 6.4s
+  留出块重训 XGBoost 第2天 -> 0.2s
+  留出块重训 LightGBM 第2天 -> 0.1s
+  留出块重训 PyTorch-LSTM 第2天 -> 6.9s
+  留出块重训 PseudoLSTM 第2天 -> 0.2s
+  留出块重训 ANN 第3天 -> 5.4s
+  留出块重训 RF 第3天 -> 5.5s
+  留出块重训 XGBoost 第3天 -> 0.1s
+  留出块重训 LightGBM 第3天 -> 0.1s
+  留出块重训 PyTorch-LSTM 第3天 -> 3.2s
+  留出块重训 PseudoLSTM 第3天 -> 0.3s
+  留出块重训 ANN 第4天 -> 1.3s
+  留出块重训 RF 第4天 -> 5.3s
+  留出块重训 XGBoost 第4天 -> 0.1s
+  留出块重训 LightGBM 第4天 -> 0.1s
+  留出块重训 PyTorch-LSTM 第4天 -> 9.6s
+  留出块重训 PseudoLSTM 第4天 -> 1.8s
+  留出块重训 ANN 第5天 -> 3.2s
+  留出块重训 RF 第5天 -> 5.1s
+  留出块重训 XGBoost 第5天 -> 0.1s
+  留出块重训 LightGBM 第5天 -> 0.1s
+  留出块重训 PyTorch-LSTM 第5天 -> 4.3s
+  留出块重训 PseudoLSTM 第5天 -> 0.6s
+  留出块重训 ANN 第6天 -> 5.2s
+  留出块重训 RF 第6天 -> 5.4s
+  留出块重训 XGBoost 第6天 -> 0.1s
+  留出块重训 LightGBM 第6天 -> 0.1s
+  留出块重训 PyTorch-LSTM 第6天 -> 3.9s
+  留出块重训 PseudoLSTM 第6天 -> 1.0s
+  留出块重训 ANN 第7天 -> 4.4s
+  留出块重训 RF 第7天 -> 5.0s
+  留出块重训 XGBoost 第7天 -> 0.1s
+  留出块重训 LightGBM 第7天 -> 0.1s
+  留出块重训 PyTorch-LSTM 第7天 -> 3.3s
+  留出块重训 PseudoLSTM 第7天 -> 1.2s
+  留出块重训 ANN 多输出 -> 0.6s
+  留出块重训 RF 多输出 -> 6.1s
+  留出块重训 PyTorch-LSTM 多输出 -> 4.8s
+  直接 Stacking 第1天: alpha=10.0
+  直接 Stacking 第2天: alpha=0.01
+  直接 Stacking 第3天: alpha=100.0
+  直接 Stacking 第4天: alpha=100.0
+  直接 Stacking 第5天: alpha=10.0
+  直接 Stacking 第6天: alpha=100.0
+  直接 Stacking 第7天: alpha=0.01
+  多输出 Stacking 第1天: alpha=0.01
+  多输出 Stacking 第2天: alpha=0.01
+  多输出 Stacking 第3天: alpha=10.0
+  多输出 Stacking 第4天: alpha=0.01
+  多输出 Stacking 第5天: alpha=0.01
+  多输出 Stacking 第6天: alpha=10.0
+  多输出 Stacking 第7天: alpha=10.0
+
+6模型简单平均_直接.csv
+策略      方法  预见期（天）     RMSE      MAE     R²
+直接 6模型简单平均       1 360.5866 119.7659 0.8196
+直接 6模型简单平均       2 638.3600 229.5370 0.4391
+直接 6模型简单平均       3 741.5973 343.5837 0.2442
+直接 6模型简单平均       4 750.2319 361.2011 0.2270
+直接 6模型简单平均       5 783.6550 394.6726 0.1567
+直接 6模型简单平均       6 836.9039 437.7785 0.0381
+直接 6模型简单平均       7 818.3091 437.8844 0.0802
+
+6模型Stacking_直接.csv
+策略          方法  预见期（天）     RMSE      MAE      R²
+直接 6模型Stacking       1 388.5545 129.0447  0.7905
+直接 6模型Stacking       2 712.1490 365.1721  0.3019
+直接 6模型Stacking       3 772.2303 533.5534  0.1804
+直接 6模型Stacking       4 820.3206 585.2482  0.0758
+直接 6模型Stacking       5 885.2696 648.9256 -0.0762
+直接 6模型Stacking       6 850.2447 632.2415  0.0072
+直接 6模型Stacking       7 900.0697 673.8792 -0.1127
+
+3模型简单平均_多输出.csv
+ 策略      方法  预见期（天）     RMSE      MAE      R²
+多输出 3模型简单平均       1 409.6773 151.5224  0.7672
+多输出 3模型简单平均       2 657.1504 248.3067  0.4056
+多输出 3模型简单平均       3 760.8713 333.4596  0.2044
+多输出 3模型简单平均       4 778.5319 366.3147  0.1675
+多输出 3模型简单平均       5 817.8648 396.1920  0.0814
+多输出 3模型简单平均       6 865.8646 436.0276 -0.0296
+多输出 3模型简单平均       7 869.4965 451.1132 -0.0384
+
+3模型Stacking_多输出.csv
+ 策略          方法  预见期（天）     RMSE      MAE      R²
+多输出 3模型Stacking       1 486.7773 220.0371  0.6713
+多输出 3模型Stacking       2 691.8105 422.6225  0.3412
+多输出 3模型Stacking       3 774.4268 549.9152  0.1758
+多输出 3模型Stacking       4 883.7452 637.0842 -0.0727
+多输出 3模型Stacking       5 914.0224 657.5151 -0.1473
+多输出 3模型Stacking       6 859.6366 645.4775 -0.0149
+多输出 3模型Stacking       7 885.1103 676.1592 -0.0760
+
+[保存] ensemble_predictions.csv 共 32123 行
+
+[stage5] 耗时 137.5s
+
+==============================================================================
+各阶段耗时：
+  stage5: 137.5s
+总耗时: 137.5s
+EXIT_stage5=0
+===== stage6 start 22:15:17
+[时长] stage6: 累计 0.0 分钟
+[字体] 正文 SimSun / 图例 Microsoft YaHei
+findfont: Failed to find font weight bold for SimSun, now using 400.
+findfont: Failed to find font weight bold for SimSun, now using 400.
+findfont: Failed to find font weight bold for SimSun, now using 400.
+[图] F:\Desktop\学习\机器学习课程实践\results\phase3_enhanced\figures\fig1_精度随预见期衰减.png  217258 字节
+[图] F:\Desktop\学习\机器学习课程实践\results\phase3_enhanced\figures\fig2_策略对比柱状图.png  73773 字节
+[图] F:\Desktop\学习\机器学习课程实践\results\phase3_enhanced\figures\fig3_测试段水文过程线.png  154724 字节
+[图] F:\Desktop\学习\机器学习课程实践\results\phase3_enhanced\figures\fig4_网格搜索交叉验证误差.png  72306 字节
+
+[stage6] 耗时 1.6s
+
+==============================================================================
+各阶段耗时：
+  stage6: 1.6s
+总耗时: 1.6s
+EXIT_stage6=0
+===== stage7 start 22:15:20
+[时长] stage7: 累计 0.0 分钟
+==============================================================================
+验收自检
+==============================================================================
+1) grid_summary 行数=8，列=['task', 'best_hidden_dim', 'best_num_layers', 'best_lr', 'best_dropout', 'cv_rmse']
+2) pytorch_lstm_metrics 行数=14，策略分布={'PyTorch-LSTM-直接': 7, 'PyTorch-LSTM-多输出': 7}
+3) 6模型简单平均_直接.csv: 行数=7，列=['策略', '方法', '预见期（天）', 'RMSE', 'MAE', 'R²']
+3) 6模型Stacking_直接.csv: 行数=7，列=['策略', '方法', '预见期（天）', 'RMSE', 'MAE', 'R²']
+3) 3模型简单平均_多输出.csv: 行数=7，列=['策略', '方法', '预见期（天）', 'RMSE', 'MAE', 'R²']
+3) 3模型Stacking_多输出.csv: 行数=7，列=['策略', '方法', '预见期（天）', 'RMSE', 'MAE', 'R²']
+5) 数字自洽（CSV 与 预测文件重算）:
+                      文件  策略           方法  预见期    CSV_R²     重算_R²  差值   通过
+          6模型简单平均_直接.csv  直接      6模型简单平均    1  0.819617  0.819617 0.0 True
+          6模型简单平均_直接.csv  直接      6模型简单平均    7  0.080245  0.080245 0.0 True
+      6模型Stacking_直接.csv  直接  6模型Stacking    1  0.790550  0.790550 0.0 True
+      6模型Stacking_直接.csv  直接  6模型Stacking    7 -0.112730 -0.112730 0.0 True
+         3模型简单平均_多输出.csv 多输出      3模型简单平均    1  0.767158  0.767158 0.0 True
+         3模型简单平均_多输出.csv 多输出      3模型简单平均    7 -0.038420 -0.038420 0.0 True
+     3模型Stacking_多输出.csv 多输出  3模型Stacking    1  0.671271  0.671271 0.0 True
+     3模型Stacking_多输出.csv 多输出  3模型Stacking    7 -0.076049 -0.076049 0.0 True
+pytorch_lstm_metrics.csv  直接 PyTorch-LSTM    1  0.846257  0.846257 0.0 True
+pytorch_lstm_metrics.csv 多输出 PyTorch-LSTM    1  0.801883  0.801883 0.0 True
+6) 第1天最优 R² = 0.846257（直接·PyTorch-LSTM），阈值 0.80 -> 达标
+4) figures 数量=4 -> ['fig1_精度随预见期衰减.png', 'fig2_策略对比柱状图.png', 'fig3_测试段水文过程线.png', 'fig4_网格搜索交叉验证误差.png']
+
+[stage7] 耗时 0.1s
+
+==============================================================================
+各阶段耗时：
+  stage7: 0.1s
+总耗时: 0.1s
+EXIT_stage7=0

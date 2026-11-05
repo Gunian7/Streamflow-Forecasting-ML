@@ -1,0 +1,63 @@
+特征提取完毕: 原始样本数 1827, 清洗后有效样本数 1813, 特征总列数 77
+==========================================================================
+v5 数据边界
+==========================================================================
+{
+  "数据文件": "01047000_fixed.csv",
+  "训练起": "2000-01-15",
+  "训练止": "2003-12-24",
+  "训练样本": 1440,
+  "测试起": "2004-01-01",
+  "测试止": "2004-12-24",
+  "测试样本": 359,
+  "特征数量": 71,
+  "含当天径流": true,
+  "含积雪特征": true,
+  "剔除零方差列": []
+}
+
+==========================================================================
+超参数搜索（对数目标）
+==========================================================================
+ANN_1      CV=0.3648 (22s)  {'regressor__model__alpha': 1.0, 'regressor__model__hidden_layer_sizes': (16,)}
+ANN_2      CV=0.5066 (32s)  {'regressor__model__alpha': 10.0, 'regressor__model__hidden_layer_sizes': (32,)}
+ANN_3      CV=0.6285 (29s)  {'regressor__model__alpha': 10.0, 'regressor__model__hidden_layer_sizes': (32,)}
+ANN_4      CV=0.7101 (33s)  {'regressor__model__alpha': 10.0, 'regressor__model__hidden_layer_sizes': (16,)}
+ANN_5      CV=0.7557 (38s)  {'regressor__model__alpha': 10.0, 'regressor__model__hidden_layer_sizes': (32,)}
+ANN_6      CV=0.8054 (52s)  {'regressor__model__alpha': 10.0, 'regressor__model__hidden_layer_sizes': (32,)}
+ANN_7      CV=0.8338 (51s)  {'regressor__model__alpha': 10.0, 'regressor__model__hidden_layer_sizes': (32,)}
+ANN_multi  CV=0.6745 (18s)  {'regressor__model__alpha': 10.0, 'regressor__model__hidden_layer_sizes': (32,)}
+RF_1       CV=0.2776 (50s)  {'max_depth': 16, 'min_samples_leaf': 5}
+RF_2       CV=0.4511 (50s)  {'max_depth': 16, 'min_samples_leaf': 5}
+RF_3       CV=0.6172 (50s)  {'max_depth': 16, 'min_samples_leaf': 10}
+RF_4       CV=0.7221 (54s)  {'max_depth': 16, 'min_samples_leaf': 10}
+RF_5       CV=0.7932 (53s)  {'max_depth': 16, 'min_samples_leaf': 10}
+RF_6       CV=0.8379 (53s)  {'max_depth': 16, 'min_samples_leaf': 10}
+RF_7       CV=0.8737 (54s)  {'max_depth': 8, 'min_samples_leaf': 10}
+RF_multi   CV=0.6844 (63s)  {'max_depth': 8, 'min_samples_leaf': 10}
+
+==========================================================================
+2004 测试集评估
+==========================================================================
+模型         ANN              RF        
+策略         多输出      直接     多输出      直接
+预见期（天）                                
+1       0.7452  0.7230  0.4828  0.5888
+2       0.3512  0.3633  0.3221  0.3879
+3       0.1727  0.2084  0.2656  0.2552
+4       0.0235  0.0795  0.2354  0.2019
+5      -0.1094 -0.2308  0.1544  0.1033
+6      -0.1346 -0.1385  0.1144  0.0743
+7      -0.1443 -0.1021  0.0785  0.0525
+
+最优逐日:
+  第1天 ANN 多输出: NSE=0.7452, RMSE=425.0
+  第2天 RF 直接: NSE=0.3879, RMSE=661.3
+  第3天 RF 多输出: NSE=0.2656, RMSE=724.9
+  第4天 RF 多输出: NSE=0.2354, RMSE=740.0
+  第5天 RF 多输出: NSE=0.1544, RMSE=778.4
+  第6天 RF 多输出: NSE=0.1144, RMSE=796.7
+  第7天 RF 多输出: NSE=0.0785, RMSE=812.7
+
+总耗时 704s
+结果目录: F:\Desktop\学习\机器学习课程实践\results\phase2_v5
