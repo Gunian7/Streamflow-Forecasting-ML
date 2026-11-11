@@ -16,6 +16,7 @@
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,9 @@ FIG_P3_DECAY = P3 / "figures" / "fig1_精度随预见期衰减.png"
 FIG_P3_STRATEGY = P3 / "figures" / "fig2_策略对比柱状图.png"
 FIG_P3_HYDRO = P3 / "figures" / "fig3_测试段水文过程线.png"
 
+EDA_CAPTION_NOTE = ("本图由修正前的原始表绘制，积雪水当量修正后的统计见 3.1 节与表 1-1，"
+                   "两处口径不同，不可直接对比。")
+
 CHECKS = []
 
 
@@ -94,7 +98,38 @@ def load_data():
     d["feat"] = json.loads((P3 / "boosting_features.json").read_text(encoding="utf-8"))
     d["data"] = pd.read_csv(ROOT / "01047000_fixed.csv")
     d["rawdata"] = pd.read_csv(ROOT / "01047000.csv")
+    d["ens_pred"] = pd.read_csv(P3 / "ensemble_predictions.csv")
     return d
+
+
+def split_facts():
+    """从阶段二、阶段三的运行日志读取真实的数据划分口径（行数、日期与留出块大小）。"""
+    log2 = (P2 / "run_phase2.log").read_text(encoding="utf-8")
+    meta = json.loads(log2[log2.index("{"): log2.index("}") + 1])
+    log3 = (P3 / "run_stage5_7.log").read_text(encoding="utf-8")
+    rows3 = re.search(r"\[数据\] 训练 (\d+) 行 / 测试 (\d+) 行", log3)
+    hold = re.search(r"训练段 (\d+) 行；元特征留出块=最后 (\d+) 行（索引 (\d+) 起）", log3)
+    if not (rows3 and hold):
+        raise LookupError("阶段三运行日志中未找到数据划分记录")
+    return {
+        "train": int(meta["训练样本"]), "test": int(meta["测试样本"]),
+        "train_start": meta["训练起"], "train_end": meta["训练止"],
+        "test_start": meta["测试起"], "test_end": meta["测试止"],
+        "train3": int(rows3.group(1)), "test3": int(rows3.group(2)),
+        "hold": int(hold.group(2)), "hold_start": int(hold.group(3)),
+    }
+
+
+def split_note(d, prefix=False):
+    """359 / 353 两阶段测试口径差异的说明（3.6 节与表 4-5、表 4-10 表注共用）。"""
+    f = split_facts()
+    start3 = str(pd.to_datetime(d["ens_pred"]["起报日"]).min().date())
+    head3 = (pd.Timestamp(start3) - pd.Timestamp(f["test_start"])).days
+    text = ("阶段二测试 %d 行（%s—%s），阶段三增强特征含 7 日滚动统计，测试段首 %d 天被丢弃，"
+            "为 %d 行（%s—%s）；差异仅 %d 天，方向性结论不变，但两阶段的单日指标不直接相减。"
+            % (f["test"], f["test_start"], f["test_end"], head3,
+               f["test3"], start3, f["test_end"], head3))
+    return ("注：" + text) if prefix else text
 
 
 def metric(df, cols, keys, col):
@@ -217,6 +252,16 @@ def cover_fields():
     }
 
 
+def division_text():
+    """分工文字来自 local_report_members.json，脚本本身不含成员姓名。"""
+    if MEMBERS_JSON.exists():
+        data = json.loads(MEMBERS_JSON.read_text(encoding="utf-8"))
+        text = (data.get("division") or "").strip()
+        if text:
+            return text
+    return "本次实验按实验指导书的任务流程分工完成，具体分工待小组确认后填写。"
+
+
 def row_text(vals):
     return [str(v) for v in vals]
 
@@ -228,8 +273,7 @@ def table_env(rows):
            ("机器学习库", "scikit-learn " + _version("scikit-learn", "1.9.1")),
            ("深度学习框架", "PyTorch " + _version("torch", "2.15.0") + "（CPU 版）"),
            ("梯度提升库", "xgboost " + _version("xgboost", "3.4.1") + " / lightgbm " + _version("lightgbm", "4.7.0")),
-           ("可视化", "matplotlib " + _version("matplotlib", "3.11.2")),
-           ("报告生成", "python-docx " + _version("python-docx", "1.2.0") + " / Word COM 转 PDF")]
+           ("可视化", "matplotlib " + _version("matplotlib", "3.11.2"))]
     return env
 
 
@@ -341,7 +385,7 @@ def section_task(doc, d, num):
     rs.add_body(doc, "整体路线是“先把数据弄对，再把特征做够，最后才比较模型”："
                      "数据修正 → 探索性分析 → 特征工程 → 归一化 → 特征选择 → 时序划分 → "
                      "基线模型（ANN、RF）→ 深度模型（PyTorch-LSTM）→ 集成（简单平均、Stacking）→ "
-                     "评估与报告生成。每一环的产出都被下一步直接消费，且都能用文件追溯。")
+                     "评估与结果分析。每一环的产出都被下一步直接消费，且都能用文件追溯。")
     rs.add_body(doc, "课程给出的三条硬约束在实现中被落成代码而不是口头约定："
                      "①禁用 sklearn 的 MultiOutputRegressor，多输出一律用原生支持多输出的模型"
                      "（MLPRegressor、RandomForestRegressor、LSTM 输出 7 维）；"
@@ -356,13 +400,14 @@ def section_task(doc, d, num):
 
 def section_division(doc):
     rs.add_heading1(doc, "二、详细分工")
-    rs.add_body(doc, "本报告由三人小组共同完成，具体分工与组长信息待确认后填写。")
+    rs.add_body(doc, division_text())
 
 
 # ------------------------------------------------------------------ 三、过程设计
 
 
 def section_design(doc, d, num):
+    facts = split_facts()
     rs.add_heading1(doc, "三、过程设计")
     rs.add_body(doc, "过程设计把整个题目拆成 9 个前后衔接的步骤，每一步都明确“用什么工具/算法”"
                      "与“处理目标是什么”，并给出可检查的产物。总览见表 3-1，随后逐节说明。")
@@ -378,12 +423,12 @@ def section_design(doc, d, num):
         ["5 特征选择", "|Pearson r| 与互信息双指标排序", "去掉与目标近乎无关或高度冗余的列",
          "60 行特征排序表"],
         ["6 时序划分", "按年份切分，训练 2000—2003 / 测试 2004", "杜绝随机划分带来的信息泄漏",
-         "训练 1468 / 测试 359 天"],
+         "训练 %d / 测试 %d 行" % (facts["train"], facts["test"])],
         ["7 基线模型", "sklearn MLPRegressor、RandomForestRegressor；log1p 目标", "建立可比的精度基线，暴露长预见期衰减规律",
          "28 行精度表"],
-        ["8 深度模型", "PyTorch LSTM（hidden 64/128、2 层、dropout、早停）；XGBoost、LightGBM", "用非线性时序模型与梯度提升提升第 1—3 天精度",
+        ["8 深度模型", "PyTorch LSTM（hidden 64/128、1—2 层（逐任务由网格搜索确定）、dropout、早停）；XGBoost、LightGBM", "用非线性时序模型与梯度提升提升第 1—3 天精度",
          "14 行 LSTM 表、14 行提升树表"],
-        ["9 集成与评估", "等权简单平均；Stacking（OOF 元特征 + Ridge/GBR 元学习器）", "降低单模型方差，比较两种集成策略的稳健性",
+        ["9 集成与评估", "等权简单平均；Stacking（287 行时序留出块 + Ridge 元学习器）", "降低单模型方差，比较两种集成策略的稳健性",
          "4 张集成表、衰减曲线"],
     ], caption="过程设计总览：步骤、工具算法与处理目标", chapter=3, numbering=num,
         col_widths_cm=[2.2, 5.0, 5.4, 2.0], font_size=Pt(9.0))
@@ -412,6 +457,9 @@ def section_design(doc, d, num):
                      "同时构造 Target_lead1—Target_lead7 七个标签列，最后丢弃首尾因滞后与标签产生的空行。"
                      "成品特征表为 %d 行 %d 列。"
                 % (d["proc"].shape[0], d["proc"].shape[1]))
+    rs.add_body(doc, "阶段二起把当天径流 Q(t) 作为特征之一：起报时刻 Q(t) 已经观测到，"
+                     "不属于未来信息泄漏，这也是第 1 天预见期精度明显高于远期的主要原因之一。"
+                     "phase2_v5_data.py 中用断言确保 Discharge 一直留在特征列内。")
 
     rs.add_heading2(doc, "3.4 归一化")
     rs.add_body(doc, "第四步做尺度统一。同时对特征与标签比较 Min-Max 与 Z-score 两种方案，"
@@ -427,11 +475,26 @@ def section_design(doc, d, num):
                 % len(d["rank"]))
 
     rs.add_heading2(doc, "3.6 时序划分")
-    rows_total, test_days = d["data"].shape[0], int(d["p2"].iloc[0]["样本数"])
-    rs.add_body(doc, ("第六步按时间切分。2000—2003 年为训练段，2004 年为测试段，"
-                      "训练段 %d 天、测试段 %d 天，两段完全不重叠。"
-                      "交叉验证同样保持时间顺序：TimeSeriesSplit(n_splits=3, gap=7)，"
-                      "折内训练段永远早于验证段。") % (rows_total - test_days, test_days))
+    rows_total = d["data"].shape[0]
+    cal_days = (pd.Timestamp("2003-12-31") - pd.Timestamp("2000-01-01")).days + 1
+    head_drop = (pd.Timestamp(facts["train_start"]) - pd.Timestamp(d["data"]["Date"].iloc[0])).days
+    mid_drop = (pd.Timestamp("2003-12-31") - pd.Timestamp(facts["train_end"])).days
+    tail_drop = (pd.Timestamp(d["data"]["Date"].iloc[-1]) - pd.Timestamp(facts["test_end"])).days
+    dropped = head_drop + mid_drop + tail_drop
+    rs.add_body(doc, ("第六步按时间切分。2000—2003 年为训练段，2004 年为测试段，两段完全不重叠："
+                      "训练段 %s—%s 共 %d 行，测试段 %s—%s 共 %d 行。"
+                      "2000-01-01 至 2003-12-31 共 %d 个日历日，构造滞后与滚动特征后实际训练样本 "
+                      "%d 行（%s—%s）；被丢弃的 %d 行是训练段首 %d 天、训练段末 %d 天与测试段末 %d 天"
+                      "（%d + %d + %d = %d，与 %d 行原始数据吻合）；阶段三加入 7 日滚动统计后训练 %d 行、"
+                      "测试 %d 行。交叉验证同样保持时间顺序：TimeSeriesSplit(n_splits=3, gap=7)，"
+                      "折内训练段永远早于验证段。")
+                % (facts["train_start"], facts["train_end"], facts["train"],
+                   facts["test_start"], facts["test_end"], facts["test"],
+                   cal_days, facts["train"], facts["train_start"], facts["train_end"],
+                   dropped, head_drop, mid_drop, tail_drop,
+                   head_drop, mid_drop, tail_drop, dropped, rows_total,
+                   facts["train3"], facts["test3"]))
+    rs.add_body(doc, "两阶段测试口径说明：" + split_note(d))
 
     rs.add_heading2(doc, "3.7 基线模型")
     rs.add_body(doc, "第七步建立基线。ANN 用 sklearn 的 MLPRegressor，RF 用 RandomForestRegressor，"
@@ -440,16 +503,18 @@ def section_design(doc, d, num):
                      "基线的作用不只是精度，更是给出“精度随预见期如何衰减”的参照曲线。")
 
     rs.add_heading2(doc, "3.8 深度模型与梯度提升")
-    rs.add_body(doc, "第八步引入更强的模型。PyTorch-LSTM 用 2 层 LSTM + 全连接输出，"
+    rs.add_body(doc, "第八步引入更强的模型。PyTorch-LSTM 用 1—2 层 LSTM（逐任务由网格搜索确定）+ 全连接输出，"
                      "超参数（hidden_dim、num_layers、学习率、dropout）在 8 个任务上分别做网格搜索，"
                      "训练时以验证损失早停并保存最优权重；XGBoost 与 LightGBM 用 early_stopping "
                      "控制迭代轮数。四类模型的预测在阶段三被拼成统一的集成输入。")
 
     rs.add_heading2(doc, "3.9 集成与评估")
     rs.add_body(doc, "最后一步做集成与评估。简单平均对 6 个（或 3 个）基学习器的预测等权平均；"
-                     "Stacking 先用 3 折 OOF 生成元特征训练元学习器，再用全训练段重训的基学习器"
-                     "生成测试段元特征。评估输出逐预见期的 RMSE、MAE、R²，"
-                     "并画精度衰减曲线、策略对比柱状图与测试段水文过程线，最后交报告生成器统一排版。")
+                     "Stacking 用训练段末尾切出的 %d 行作为时序留出块：基学习器在留出块之前的训练数据上重训，"
+                     "并向留出块留出与预见期等长的间隔，据此生成元特征；元学习器为 Ridge，内部用时间序列"
+                     "交叉验证选 alpha；测试段元特征由全训练段重训的基学习器生成。评估输出逐预见期的 "
+                     "RMSE、MAE、R²，并画精度衰减曲线、策略对比柱状图与测试段水文过程线。"
+                % facts["hold"])
 
 
 # ------------------------------------------------------------------ 四、编码实现及结果
@@ -551,24 +616,33 @@ if stale_epochs >= early_stopping_patience:      # 15 轮
     break
 self.model.load_state_dict(best_state)'''
 
-CODE_ENSEMBLE = '''# 简单平均：等权平均 6 个基学习器的预测，先各自保证在 cfs 尺度
-meta_test = np.column_stack([
-    _predict(models["ANN"][horizon], x_old, "ANN"),
-    _predict(models["RF"][horizon], x_old, "RF"),
-    _predict(models["PyTorch-LSTM"][horizon], x_seq, "PyTorch-LSTM"),
-    _predict(models["XGBoost"][horizon], x_enh, "XGBoost"),
-    _predict(models["LightGBM"][horizon], x_enh, "LightGBM"),
-    _predict(models["PseudoLSTM"][horizon], x_old, "PseudoLSTM"),
-])
-prediction = np.clip(meta_test.mean(axis=1), 0, None)   # 等权平均 + 非负
+CODE_ENSEMBLE = '''# 简单平均：与 Stacking 共用同一批基学习器与同一预测集（phase3_run_all.py stage5）
+for h in HORIZONS:
+    mat = np.column_stack([np.asarray(base_direct[n][h], float).ravel() for n in names_direct])
+    add("直接", f"{len(names_direct)}模型简单平均", h, Y_te[h], mat.mean(axis=1))
 
-# Stacking：元特征必须来自 OOF 预测，否则元学习器会看到基学习器"背过"的样本
-meta_train, y_train, train_dates = _create_oof_meta(train_old, train_enhanced,
-                                                    cols_old, cols_enhanced, horizon)
-meta_model = GradientBoostingRegressor(n_estimators=100, max_depth=2,
-                                       learning_rate=0.03, min_samples_leaf=5)
-meta_model.fit(meta_train, y_train)
-prediction = np.clip(meta_model.predict(meta_test), 0, None)'''
+# Stacking：训练段末尾约 20% 作时序留出块生成元特征，元学习器为 Ridge
+n_tr, n_hold = len(tr_e), int(round(len(tr_e) * 0.2))    # 1434 行 → 留出块 287 行（索引 1147 起）
+hold_start = n_tr - n_hold
+
+def split_for(h):
+    fit_end = hold_start - h        # 留出与预见期等长的间隔，避免与留出块的目标日重叠
+    return slice(0, fit_end), slice(hold_start, n_tr)
+
+sl_fit, sl_ho = split_for(h)        # 基学习器只在留出块之前的数据上重训
+m = _clone_best(joblib.load(ROOT / "results/phase2_v5" / f"ANN_{h}.joblib")).fit(
+    Xb_train[sl_fit], np.log1p(Y_tr[h][sl_fit]))
+meta_direct[h][:, k] = np.expm1(np.asarray(m.predict(Xb_train[sl_ho]), float)).ravel()
+
+def _fit_ridge_meta(meta, y):       # 标准化 + 时间序列交叉验证选 alpha
+    Z = StandardScaler().fit_transform(meta)
+    errs = {a: np.mean([np.mean((y[va] - Ridge(alpha=a).fit(Z[tr], y[tr]).predict(Z[va])) ** 2)
+                        for tr, va in TimeSeriesSplit(n_splits=3).split(Z) if len(tr) >= 30])
+            for a in [1e-2, 1e-1, 1.0, 10.0, 100.0, 1000.0, 10000.0]}
+    return Ridge(alpha=min(errs, key=errs.get)).fit(Z, y), Z
+
+r, scaler, alpha = _fit_ridge_meta(meta_direct[h], y_hold[h])   # 元学习器只在留出块上拟合
+prediction = r.predict(scaler.transform(test_mat))             # 测试段元特征来自全训练段重训的基学习器'''
 
 CODE_METRIC = '''def metrics(y, p):
     y = np.asarray(y, float)
@@ -595,6 +669,7 @@ CODE_TAIL = '''def _predict(model, X, family=None):
 
 
 def section_code(doc, d, num):
+    facts = split_facts()
     rs.add_heading1(doc, "四、编码实现及结果")
     rs.add_heading2(doc, "4.1 开发环境与算法库")
     rs.add_body(doc, "全部实验在本机单机完成，不依赖 GPU。运行环境见表 4-1，版本号在生成报告时"
@@ -602,10 +677,10 @@ def section_code(doc, d, num):
     rs.add_table(doc, ["项目", "配置"], [list(r) for r in table_env(None)],
                  caption="实验运行的软硬件环境", chapter=4, numbering=num,
                  col_widths_cm=[4.0, 10.6], font_size=Pt(9.5))
-    rs.add_body(doc, "代码按职责拆分为四个层次：数据层（build_fixed_dataset.py、step1_data_analysis.py、"
+    rs.add_body(doc, "代码按职责拆分为三个层次：数据层（build_fixed_dataset.py、step1_data_analysis.py、"
                      "step2_feature_engineering.py）、建模层（phase2_v5_*.py、pytorch_lstm*.py、"
                      "train_boosting.py、enhanced_ensemble.py）、评估与校验层（verify_all_results.py、"
-                     "phase3_run_all.py）、报告层（report_style.py 与四个 report 脚本）。"
+                     "phase3_run_all.py）。"
                      "下面按第三部分的步骤给出关键代码与注释，完整代码见附录。")
 
     rs.add_heading2(doc, "4.2 关键步骤代码与注释")
@@ -627,14 +702,16 @@ def section_code(doc, d, num):
     add_code_caption(doc, "代码 4-3  TimeSeriesSplit + GridSearchCV 选参（phase2_v5_experiment.py，节选）")
     add_code_block(doc, CODE_SEARCH)
 
-    rs.add_body(doc, "（4）PyTorch-LSTM 的结构与训练：2 层 LSTM 取最后时间步的隐藏状态接两层全连接，"
-                     "验证损失早停并把最优权重回滚。")
+    rs.add_body(doc, "（4）PyTorch-LSTM 的结构与训练：1—2 层 LSTM（逐任务由网格搜索确定）取最后时间步的"
+                     "隐藏状态接两层全连接，验证损失早停并把最优权重回滚。")
     add_code_caption(doc, "代码 4-4  PyTorch-LSTM 结构与早停（pytorch_lstm.py，节选）")
     add_code_block(doc, CODE_LSTM)
 
-    rs.add_body(doc, "（5）集成：简单平均直接对六个基学习器的预测等权平均；Stacking 的元特征"
-                     "必须由折外（OOF）预测生成，元学习器用浅层 GBR。")
-    add_code_caption(doc, "代码 4-5  简单平均与 Stacking 元特征构造（enhanced_ensemble.py，节选）")
+    rs.add_body(doc, "（5）集成：简单平均直接对六个基学习器的预测等权平均；Stacking 用训练段末尾切出的 "
+                     "%d 行时序留出块生成元特征，元学习器为内部用时间序列交叉验证选 alpha 的 Ridge，"
+                     "测试段元特征由全训练段重训的基学习器生成。"
+                % facts["hold"])
+    add_code_caption(doc, "代码 4-5  简单平均与 Stacking 元特征构造（phase3_run_all.py，节选）")
     add_code_block(doc, CODE_ENSEMBLE)
 
     rs.add_body(doc, "（6）指标计算与反变换：四个指标一次算出，R² 与 NSE 同式；反变换与裁剪非负"
@@ -693,9 +770,11 @@ def section_code(doc, d, num):
                                   fmt(_boost(d, model, h, "RMSE"), 2),
                                   fmt(_boost(d, model, h, "MAE"), 2),
                                   fmt(_boost(d, model, h, "R²"), 4)]))
-    rs.add_table(doc, ["模型", "策略", "预见期（天）", "RMSE（cfs）", "MAE（cfs）", "R²"], rows,
+    table45, cap45 = rs.add_table(doc, ["模型", "策略", "预见期（天）", "RMSE（cfs）", "MAE（cfs）", "R²"], rows,
                  caption="第三阶段 XGBoost 与 LightGBM 的逐预见期精度（14 行）", chapter=4, numbering=num,
                  col_widths_cm=[2.6, 1.8, 2.4, 2.8, 2.6, 2.4], font_size=Pt(9.5))
+    print("[INFO] 359/353 表注挂载于：%s" % cap45)
+    rs.add_figure_note(doc, split_note(d, prefix=True))
 
     rs.add_body(doc, "四张集成结果表分别对应课程要求的四个子任务。6 模型简单平均（直接多步）第 1 天 "
                      "R² = %s，明显高于 6 模型 Stacking 的 %s；多输出一侧，3 模型简单平均第 1 天为 %s，"
@@ -732,9 +811,11 @@ def section_code(doc, d, num):
                               fmt(p2raw(d, "ANN", "直接", h), 4),
                               fmt(p2m(d, "ANN", "直接", h, "RMSE（cfs）"), 2),
                               fmt(p2m(d, "ANN", "直接", h), 4)]))
-    rs.add_table(doc, ["预见期（天）", "修正前 RMSE", "修正前 R²", "修正后 RMSE", "修正后 R²"], rows,
+    table410, cap410 = rs.add_table(doc, ["预见期（天）", "修正前 RMSE", "修正前 R²", "修正后 RMSE", "修正后 R²"], rows,
                  caption="数据修正前后对照：ANN 直接多步（修正前为未修正数据口径）", chapter=4, numbering=num,
                  col_widths_cm=[2.8, 3.2, 2.8, 3.2, 2.6], font_size=Pt(9.5))
+    print("[INFO] 359/353 表注挂载于：%s" % cap410)
+    rs.add_figure_note(doc, split_note(d, prefix=True))
 
     gains = [p2m(d, "ANN", "直接", h) - p2raw(d, "ANN", "直接", h) for h in range(1, 8)]
     rmse_gain = [p2raw(d, "ANN", "直接", h, "RMSE（cfs）") - p2m(d, "ANN", "直接", h, "RMSE（cfs）")
@@ -757,11 +838,11 @@ def section_code(doc, d, num):
                      "特征工程、阶段二与阶段三的精度评价、集成策略对比与水文过程线。"
                      "图件由 matplotlib 生成、以 PNG 存于 results/ 下，报告直接引用原图，不做二次加工。")
     figures = (
-        (FIG_TS, "径流与气象要素的时间序列总览（2000—2004）", "径流呈显著的春汛—融雪节律，"
+        (FIG_TS, "径流与气象要素的时间序列总览（2000—2004）。" + EDA_CAPTION_NOTE, "径流呈显著的春汛—融雪节律，"
                                                           "冬季低流量平稳、4—5 月陡升，峰值集中在少数几天。"),
-        (FIG_BOX, "8 个数值变量的箱型图与离群点", "径流量存在大量上侧离群点，"
+        (FIG_BOX, "8 个数值变量的箱型图与离群点。" + EDA_CAPTION_NOTE, "径流量存在大量上侧离群点，"
                                             "最大值为中位数的数十倍，这是长预见期难以拟合的直接原因。"),
-        (FIG_CORR, "皮尔逊相关系数热力图", "径流与日照、气温、水汽压的相关性明显强于与降水的同步相关，"
+        (FIG_CORR, "皮尔逊相关系数热力图。" + EDA_CAPTION_NOTE, "径流与日照、气温、水汽压的相关性明显强于与降水的同步相关，"
                                    "支持引入滞后特征刻画降水与气温的延迟响应。"),
         (FIG_SEL, "特征选择：|Pearson r| 与互信息的排序对比", "两种指标给出的前列特征高度一致，"
                                                     "径流自身及其滑动统计量贡献最大。"),
@@ -811,8 +892,8 @@ DEBUG_ITEMS = (
      "生成的 docx 打开后每个一级标题都单独占一页，标题与上一段之间出现大段空白。",
      "解压 docx 检查 word/document.xml，发现标题样式的 w:spacing 的 before/after 被写成了 457200 这类"
      "EMU 数值（python-docx 中 Length 未按磅换算），Word 按 1/20 磅解释，段前相当于上万磅。",
-     "在 report_style.py 中统一用 Pt() 生成 twips 再写入 w:spacing，标题样式只保留 line_spacing=1.5、"
-     "first_line_indent=Pt(0)，段落间距一律传 Pt 值；重新生成后标题不再独占页。"),
+     "统一用 Pt() 换算成 twips 再写入 w:spacing（标题样式只保留 line_spacing=1.5、"
+     "first_line_indent=Pt(0)，段落间距一律传 Pt 值）；重新生成后标题不再独占页。"),
     ("matplotlib 图例中文缺字",
      "精度衰减图的图例与坐标轴标签里出现方框，控制台同时提示 Glyph missing from current font。",
      "图件统一设置 rcParams['font.sans-serif'] = ['SimSun']，但标签中含“²”“≤”等 SimSun 缺失字形，"
@@ -828,10 +909,14 @@ DEBUG_ITEMS = (
     ("Stacking 元特征分布偏移，长预见期反而不如简单平均",
      "6 模型 Stacking 第 1 天 R² 为 %s，低于简单平均的 %s；第 3—7 天 Stacking 的 MAE 明显更大"
      "（表 4-6 与表 4-7）。",
-     "元学习器在训练段用 3 折 OOF 元特征训练，测试段元特征却来自全训练段重训的基学习器，两者分布不同；"
-     "且六个基学习器预测的是同一条径流，元特征高度共线，样本量仅约 1000 时浅层 GBR 容易过拟合。",
-     "改用 Ridge 等强正则元学习器、只用 OOF 元特征做折内选择，并把简单平均作为主结论、"
-     "Stacking 作为对照；报告不再以 Stacking 的最优结果代表整体水平。"),
+     "元学习器只在训练段末尾约五分之一的留出块上拟合，样本量小；六个基学习器预测的是同一条径流，"
+     "元特征高度共线，留出块上的权重估计方差大，长预见期的权重更不稳定。",
+     "先核对描述与产出结果的对应关系：曾尝试 enhanced_ensemble.py 的折外预测（out-of-fold）加浅层梯度"
+     "提升树（Gradient Boosting Regressor）的方案，但该脚本依赖的 train_pytorch_lstm 模块在工程中不存在、"
+     "其产物 enhanced_ensemble_metrics.csv 也未进入结果目录，四张集成表实际由 phase3_run_all.py stage5 的"
+     "“287 行留出块 + Ridge”方案产出，报告正文与代码节选据此改正；教训是方法描述必须与产出结果的代码一致。"
+     "改进方向：对元学习器施加非负权重约束（非负最小二乘 / 带约束 Ridge），按预见期分别选择集成策略，"
+     "并在滚动窗口上重训元学习器以检验稳定性；当前把简单平均作为主结论、Stacking 作为对照。"),
     ("Word COM 导出 PDF 偶发 0x800706BE",
      "用 doctopdf_one.ps1 转 PDF 时偶发“远程过程调用失败 (0x800706BE)”，且 WINWORD.EXE 进程残留，"
      "后续调用持续失败。",
@@ -878,13 +963,12 @@ def section_summary(doc, d):
         "归一化：Min-Max 与 Z-score 两种方案对比，训练段 fit、测试段 transform；",
         "特征选择：|Pearson r| 与互信息双指标排序；",
         "基线模型：多层感知机 ANN（sklearn MLPRegressor）、随机森林 RF；",
-        "深度模型：PyTorch 实现的 LSTM 回归器（2 层、dropout、早停、学习率调度）；",
+        "深度模型：PyTorch 实现的 LSTM 回归器（1—2 层、dropout、早停、学习率调度，层数逐任务由网格搜索确定）；",
         "梯度提升：XGBoost 与 LightGBM（early_stopping 控制迭代轮数）；",
-        "集成学习：等权简单平均、Stacking（3 折 OOF 元特征 + Ridge / 浅层 GBR 元学习器）；",
+        "集成学习：等权简单平均、Stacking（287 行时序留出块 + Ridge 元学习器）；",
         "超参数搜索：GridSearchCV + TimeSeriesSplit(n_splits=3, gap=7)，严格限定在训练段；",
         "多步预测策略：直接多步（每个预见期一个模型）与多输出（一次输出 7 维）；",
         "评价与可视化：RMSE、MAE、R²、NSE，精度衰减曲线、策略对比柱状图、水文过程线；",
-        "报告自动化：python-docx 封装的三线表、图表题注、页眉页码与代码附录。",
     ]
     for item in items:
         rs.add_body(doc, "· " + item, indent=False)
@@ -912,6 +996,11 @@ def section_summary(doc, d):
          "Stacking 的第 1 天 R²（%s）低于简单平均（%s），长预见期差距更大，元特征共线且样本量小是主因。",
          "对元学习器施加非负权重约束（非负最小二乘 / 带约束 Ridge），按预见期分别选择集成策略，"
          "并在滚动窗口上重训元学习器以检验稳定性。"),
+        ("2004 年测试段被反复查看，泛化能力估计偏乐观",
+         "2004 年测试段在 v2/v3/v5 与第三阶段的多轮迭代中被反复查看，方案与超参数的取舍实际上参照了它的指标，"
+         "因此报告的泛化能力估计偏乐观。",
+         "最终泛化能力仍需新年份或其他流域数据验证：把 2004 年重新放回“只用一次”的最终留出集，"
+         "中间的方案选择改用滚动验证（walk-forward）或逐年留出，并用其他站点数据做外部验证。"),
     ]
     for idx, (title, desc, plan) in enumerate(problems, start=1):
         rs.add_body(doc, "（%d）%s。" % (idx, title) + desc, indent=True)
@@ -934,8 +1023,8 @@ def section_summary(doc, d):
                      "信息挑超参数。配合 gap=7 的 TimeSeriesSplit 和统一的反变换入口，我才真正理解"
                      "“可复现”意味着每一个数字都能追溯到某次具体的运行。")
     rs.add_body(doc, "第四，工程化能力决定结论的可信度。为了让报告里的每个数字都来自结果文件而不是手工抄写，"
-                     "我把排版也做成了脚本：三线表、图表题注、页眉页码、代码附录全部由 python-docx 生成，"
-                     "并加了关键数值断言。这套做法起初被视为“多余的工作”，但当模型重新训练、结果表更新时，"
+                     "我把结果读取、格式化与关键数值断言全部脚本化：任何一个数字对不上，生成过程就直接中断。"
+                     "这套做法起初被视为“多余的工作”，但当模型重新训练、结果表更新时，"
                      "报告只需要重新运行一次就能保持一致——这大概就是从“跑通一次”到“能交付”的距离。")
 
 
@@ -954,8 +1043,13 @@ SCRIPT_ORDER = (
     "phase2_v5_data", "phase2_v5_experiment", "phase2_v5_figs",
     "pytorch_lstm", "pytorch_lstm_grid_search", "train_boosting", "enhanced_ensemble",
     "phase3_lstm", "phase3_probe", "phase3_run_all", "retrain_pytorch_lstm_final",
-    "verify_all_results", "make_summary", "report_style", "phase1_report", "phase2_report",
-    "phase3_report", "final_report",
+    "verify_all_results", "make_summary",
+)
+
+# 排版/成文类脚本属于提交方自用工具，不属于课程交付的技术内容，一律不列入附录
+EXCLUDED_SCRIPT_STEMS = (
+    "experiment_report", "report_style",
+    "phase1_report", "phase2_report", "phase3_report", "final_report", "sizheng_report",
 )
 
 
@@ -966,8 +1060,9 @@ def section_notes(doc):
 
 
 def code_scripts():
-    """按 SCRIPT_ORDER 排序 code/ 下的建模脚本（生成器自身不附录）。"""
-    files = [p for p in (ROOT / "code").glob("*.py") if p.name != "experiment_report.py"]
+    """按 SCRIPT_ORDER 排序 code/ 下的建模脚本（排版/成文类脚本不附录）。"""
+    files = [p for p in (ROOT / "code").glob("*.py")
+             if p.stem not in EXCLUDED_SCRIPT_STEMS]
     by_stem = {p.stem: p for p in files}
     ordered = [by_stem[s] for s in SCRIPT_ORDER if s in by_stem]
     ordered += sorted((p for p in files if p.stem not in SCRIPT_ORDER), key=lambda p: p.stem)
@@ -987,12 +1082,15 @@ def section_appendix(doc):
         stripped += len(lines)
         bodies.append((path.name, raw_lines, len(lines), "\n".join(lines)))
 
-    rs.add_body(doc, "本附录收录 code/ 目录下与本次实践相关的全部 %d 个 Python 脚本，合计 %d 行"
+    rs.add_body(doc, "本附录收录 code/ 目录下与本次实践技术内容相关的 %d 个 Python 脚本，合计 %d 行"
                      "（按模板“可减少空行”的要求去除空行后为 %d 行）。取舍说明：为使结论可复核，"
-                     "数据准备、建模、集成、校验与报告排版脚本全部收录，未做删减；"
+                     "数据准备、特征工程、建模、集成与校验脚本全部收录，未做删减；"
+                     "报告排版与成文类脚本属于提交方自用工具，不属于本课程交付的技术内容，未列入附录；"
                      "模型权重文件（*.joblib）与结果表格（*.csv）不入附录，随实验目录一并提交。"
+                     "其中 enhanced_ensemble.py 是未被采用的尝试（依赖的 train_pytorch_lstm 模块不在工程内、"
+                     "产物也未进入结果目录），为便于复核仍按原样收录，报告中的集成结果以 phase3_run_all.py 为准。"
                      "代码以等宽字体 7.5 磅、单倍行距排印，按“数据准备 → 阶段一 → 阶段二 → 阶段三 → "
-                     "校验与报告”的顺序排列；每个文件以黑体标题起始，文件之间连续排印而不强制分页，"
+                     "校验与汇总”的顺序排列；每个文件以黑体标题起始，文件之间连续排印而不强制分页，"
                      "以避免出现只有两三行代码的半空白页（模板亦要求“以减少空行、缩小字体的方式节省纸张”）。"
                 % (len(scripts), total, stripped))
 
@@ -1030,6 +1128,17 @@ def report():
     check_value("未修正数据 ANN 直接 第1天 R²", fmt(p2raw(d, "ANN", "直接", 1), 2), "0.50")
     check_value("数据集行列数", "%dx%d" % d["data"].shape, "1827x9")
     check_value("成品特征矩阵", "%dx%d" % d["proc"].shape, "1827x196")
+    facts = split_facts()
+    check_value("阶段二训练行数", facts["train"], 1440)
+    check_value("阶段二测试行数", facts["test"], 359)
+    check_value("阶段三训练行数", facts["train3"], 1434)
+    check_value("阶段三测试行数", facts["test3"], 353)
+    check_value("Stacking 留出块行数", facts["hold"], 287)
+    check_value("训练+测试+丢弃行数", facts["train"] + facts["test"] + 
+                (pd.Timestamp("2003-12-31") - pd.Timestamp(facts["train_end"])).days
+                + (pd.Timestamp(facts["train_start"]) - pd.Timestamp(d["data"]["Date"].iloc[0])).days
+                + (pd.Timestamp(d["data"]["Date"].iloc[-1]) - pd.Timestamp(facts["test_end"])).days,
+                d["data"].shape[0])
 
     doc = rs.new_document(header_text=HEADER_TEXT)
     build_cover(doc, cover)
@@ -1044,6 +1153,7 @@ def report():
     section_summary(doc, d)
     section_notes(doc)
     files, total, stripped = section_appendix(doc)
+    check_value("附录收录脚本数", len(files), 22)
 
     out = ROOT / DOC_NAME
     doc.save(str(out))
